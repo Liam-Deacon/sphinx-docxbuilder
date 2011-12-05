@@ -515,12 +515,6 @@ class DocxComposer:
     shutil.rmtree(self.template_dir)
     return
     
-  def get_child(self, element, tag):
-    '''
-      Get child elements...
-    '''
-    return element.xpath(tag, namespaces=nsprefixes)
-
   def make_element(self,tagname,tagtext=None):
     '''
       Make an element without attributes
@@ -654,7 +648,7 @@ class DocxComposer:
        Get stylename of the paragraph
     '''
 
-    pStyle = self.get_child(paragraph, 'w:pPr/w:pStyle')
+    pStyle = get_elements(paragraph, 'w:pPr/w:pStyle')
     if not pStyle :
       return 'BodyText'
     return pStyle[0].attrib[norm_name('w:val')]
@@ -680,10 +674,10 @@ class DocxComposer:
        Insert paragraph property element with style.
     '''
     style=self.get_paragraph_style(paragraph)
-    pPr = self.get_child(paragraph, 'w:pPr')
+    pPr = get_elements(paragraph, 'w:pPr')
     if not pPr :
       self.insert_paragraph_property(paragraph)
-      pPr = self.get_child(paragraph, 'w:pPr')
+      pPr = get_elements(paragraph, 'w:pPr')
 
     numPr = self.makeelement('w:numPr')
     if style == 'ListNumber':
@@ -722,12 +716,12 @@ class DocxComposer:
     '''
        Set indent of paragraph
     '''
-    pPr = self.get_child(paragraph, 'w:pPr')
+    pPr = get_elements(paragraph, 'w:pPr')
     if not pPr :
       self.insert_paragraph_property(paragraph)
-      pPr = get_child(paragraph, 'w:pPr')
+      pPr = get_elements(paragraph, 'w:pPr')
 
-    ind = self.get_child(pPr[0], 'w:ind')
+    ind = get_elements(pPr[0], 'w:ind')
     if not ind :
       ind = self.makeelement('w:ind',attributes={'w:left': str(lskip)})
       pPr[0].append(ind)
