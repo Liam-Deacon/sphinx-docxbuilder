@@ -33,6 +33,7 @@ import sys
 import os
 import zipfile
 import tempfile
+from lxml import etree
 
 #
 # Is the PIL imaging library installed?
@@ -79,7 +80,32 @@ def get_items_list(src):
       result.append(x)
   return result
 
+def findElement(elem, tag):
+  res = None
+  if not elem :
+    return res
 
+  for x in elem :
+    try:
+      if x.tagname == tag:
+        return x
+      else:
+        res = findElement(x.children, tag)
+    except:
+      res = None
+  return res
+
+def get_toc_maxdepth(builder, docname):
+  toc_maxdepth = 0
+  try:
+    toc = findElement(builder.env.tocs[docname], 'toctree')
+
+    if toc :
+      toc_maxdepth = toc['maxdepth']
+  except:
+    toc_maxdepth = 0
+  return toc_maxdepth
+  
 #
 #  DocxWriter class for sphinx
 #
@@ -272,6 +298,7 @@ class DocxTranslator(nodes.NodeVisitor):
 	   start of a document
         '''
         dprint()
+        self.toc_out=False
         self.new_state()
 
     def depart_document(self, node):
@@ -345,6 +372,11 @@ class DocxTranslator(nodes.NodeVisitor):
         '''
 	   start of a compound (pass a text)
         '''
+        if not self.toc_out :
+           self.toc_out = True
+           self.ensure_state()
+           maxdepth = get_toc_maxdepth(self.builder, 'index')
+           self.docx.table_of_contents(toc_text=None, maxlevel=maxdepth )
         dprint()
         pass
 
@@ -807,7 +839,11 @@ class DocxTranslator(nodes.NodeVisitor):
     def get_image_width_height(self, node, attr):
         size = None
         if attr in node.attributes:
-            size = node.attributes[attr]
+          size = node.attributes[attr]
+          if size[-1] == '%' :
+            size = float(size[:-1])
+            size = [size, '%']
+          else:
             unit = size[-2:]
             if unit.isalpha():
                 size = size[:-2]
@@ -840,10 +876,6 @@ class DocxTranslator(nodes.NodeVisitor):
         return scale
 
     def get_image_scaled_width_height(self, node, filename):
-        scale = self.get_image_scale(node)
-        width = self.get_image_width_height(node, 'width')
-        height = self.get_image_width_height(node, 'height')
-
         dpi = (72, 72)
         if Image is not None :
             imageobj = Image.open(filename, 'r')
@@ -853,6 +885,17 @@ class DocxTranslator(nodes.NodeVisitor):
             except: dpi = (dpi, dpi)
         else:
             imageobj = None
+            raise RuntimeError('image size not fully specified and PIL not installed')
+
+        scale = self.get_image_scale(node)
+        width = self.get_image_width_height(node, 'width')
+        height = self.get_image_width_height(node, 'height')
+
+        if width is not None and width[1] == '%':
+           width = [int(self.docx.styleDocx.document_width * width[0] * 4 / 1000), 'px']
+
+        if height is not None and height[1] == '%':
+           height = [int(self.docx.styleDocx.document_height * height[0] * 4  / 1000), 'px']
 
         if width is None or height is None:
             if imageobj is None:

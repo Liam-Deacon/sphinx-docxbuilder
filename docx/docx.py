@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 '''
   Microsoft Word 2007 Document Composer
 
@@ -24,7 +24,6 @@ import os
 from os.path import join
 import tempfile
 import sys
-import codecs
 
 
 # All Word prefixes / namespace matches used in document.xml & core.xml.
@@ -183,6 +182,15 @@ class DocxDocument:
 
   def get_paper_info(self):
     self.paper_info = get_elements(self.document,'/w:document/w:body/w:sectPr')[0]
+    self.paper_size = get_elements(self.document,'/w:document/w:body/w:sectPr/w:pgSz')[0]
+    self.paper_margin = get_elements(self.document,'/w:document/w:body/w:sectPr/w:pgMar')[0]
+    width = int(self.paper_size.get(norm_name('w:w'))) - int(self.paper_margin.get(norm_name('w:right'))) -int(self.paper_margin.get(norm_name('w:left'))) 
+    height = int(self.paper_size.get(norm_name('w:h'))) - int(self.paper_margin.get(norm_name('w:top'))) -int(self.paper_margin.get(norm_name('w:bottom'))) 
+
+    self.document_width = int(width * 2099 / 11900)  # mm
+    self.document_height = int(height * 2970 / 16840)  # mm
+
+    print self.document_width, self.document_height
     return self.paper_info
     
 
@@ -198,12 +206,13 @@ class DocxDocument:
         document = etree.fromstring(xmlcontent)
         xmlcontent = etree.tostring(document, encoding='UTF-8', pretty_print=pprint)
         if outname == None : outname = os.path.basename(fname)
-        f = codecs.open(outname, 'w','UTF-8')
+
+        f = open(outname, 'w')
         f.write(xmlcontent)
         f.close()
     except:
         print "Error in extract_document: %s" % fname
-        print filelist
+        #print filelist
     return
 
 
@@ -556,6 +565,95 @@ class DocxComposer:
     self.docbody.append(para)
     self.last_paragraph = para
     return para
+
+  def table_of_contents(self, toc_text='Contents:', maxlevel=3):
+    '''
+      Insert the Table of Content
+    '''
+    sdt = self.makeelement('w:sdt')
+    sdtPr = self.makeelement('w:sdtPr')
+    rPr = self.makeelement('w:rPr')
+    lang = self.makeelement('w:lang')
+    rPr.append(lang)
+    sdtPr.append(rPr)
+
+    docPartObj = self.makeelement('w:docPartObj')
+    docPartGallery = self.makeelement('w:docPartGallery', attributes={'w:val':'Table of Contents'})
+    docPartUnique = self.makeelement('w:docPartUnique')
+    docPartObj.append(docPartGallery)
+    docPartObj.append(docPartUnique)
+    sdtPr.append(docPartObj)
+
+    sdt.append(sdtPr)
+
+    sdtEndPr = self.makeelement('w:sdtEndPr')
+    rPr = self.makeelement('w:rPr')
+    rPr.append( self.makeelement('w:b', attributes={'w:val':'0'}) )
+    rPr.append( self.makeelement('w:bCs', attributes={'w:val':'0'}) )
+    rPr.append( self.makeelement('w:color', attributes={'w:val':'auto'}) )
+    rPr.append( self.makeelement('w:sz', attributes={'w:val':'24'}) )
+    rPr.append( self.makeelement('w:szCs', attributes={'w:val':'24'}) )
+    sdtEndPr.append(rPr)
+
+    sdtContent = self.makeelement('w:sdtContent')
+
+    p = self.makeelement('w:p')
+    pPr = self.makeelement('w:pPr')
+    pPr.append(self.makeelement('w:pStyle', attributes={'w:val':'a8'}))
+    p.append(pPr)
+
+    if toc_text :
+      r = self.makeelement('w:r')
+      rPr = self.makeelement('w:rPr')
+      rPr.append( self.makeelement('w:lang'))
+      r.append(rPr)
+      txt = self.makeelement('w:t', tagtext=toc_text)
+      r.append(txt)
+      p.append(r)
+      sdtContent.append(p)
+
+    p = self.makeelement('w:p')
+    pPr = self.makeelement('w:pPr')
+    pPr.append(self.makeelement('w:pStyle', attributes={'w:val':'11'}))
+    tabs = self.makeelement('w:tabs')
+    tab = self.makeelement('w:tab', attributes={'w:val':'right', 'w:leader':'dot','w:pos':'8488'})
+    tabs.append(tab)
+    pPr.append(tabs)
+    rPr = self.makeelement('w:rPr')
+    rPr.append(self.makeelement('w:b', attributes={'w:val':'0'}))
+    rPr.append(self.makeelement('w:noProof'))
+    pPr.append(rPr)
+    p.append(pPr)
+
+    r = self.makeelement('w:r')
+    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'begin'}))
+    p.append(r)
+
+    r = self.makeelement('w:r')
+    r.append(self.makeelement('w:instrText', tagtext=' TOC \o "1-%d" \h \z \u ' % maxlevel , attributes={'xml:space':'preserve'}))
+    p.append(r)
+
+    r = self.makeelement('w:r')
+    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'separare'}))
+    p.append(r)
+
+    r = self.makeelement('w:r')
+    rPr = self.makeelement('w:rPr')
+    rPr.append(self.makeelement('w:b', attributes={'w:val':'0'}))
+    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'end'}))
+    p.append(r)
+
+    sdtContent.append(p)
+
+    p = self.makeelement('w:p')
+    r = self.makeelement('w:r')
+    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'end'}))
+    p.append(r)
+
+    sdtContent.append(p)
+
+    sdt.append(sdtContent)
+    self.docbody.append(sdt)
 
   def pagebreak(self,type='page', orient='portrait'):
     '''
