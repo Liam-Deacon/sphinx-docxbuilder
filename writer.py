@@ -297,6 +297,7 @@ class DocxTranslator(nodes.NodeVisitor):
         '''
 	   start of a document
         '''
+        print self.builder.env.tocs['index']
         dprint()
         self.toc_out=False
         self.new_state()
@@ -892,10 +893,10 @@ class DocxTranslator(nodes.NodeVisitor):
         height = self.get_image_width_height(node, 'height')
 
         if width is not None and width[1] == '%':
-           width = [int(self.docx.styleDocx.document_width * width[0] * 4 / 1000), 'px']
+           width = [int(self.docx.styleDocx.document_width * width[0] * 4.06 / 1000), 'px']
 
         if height is not None and height[1] == '%':
-           height = [int(self.docx.styleDocx.document_height * height[0] * 4  / 1000), 'px']
+           height = [int(self.docx.styleDocx.document_height * height[0] * 4.06 / 1000), 'px']
 
         if width is None or height is None:
             if imageobj is None:
