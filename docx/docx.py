@@ -745,7 +745,6 @@ class DocxComposer:
     '''
        Get stylename of the paragraph
     '''
-
     pStyle = get_elements(paragraph, 'w:pPr/w:pStyle')
     if not pStyle :
       return 'BodyText'
@@ -766,6 +765,25 @@ class DocxComposer:
       result = self.number_list_indent * (lvl+1)
 
     return result
+     
+  def find_numbering_paragraph(self, nId):
+    result =[]
+    for p in self.docbody :
+      elem = get_elements(p, 'w:pPr/w:numPr/w:numId')
+      for x in elem:
+        if int(x.attrib[norm_name('w:val')]) == int(nId) :
+          result.append(p)
+    return result
+
+  def set_numbering_id(self, paragraph, nId):
+      elem = get_elements(paragraph, 'w:pPr/w:numPr/w:numId')
+      if elem :
+        elem[0].set(norm_name('w:val'), str(nId))
+
+  def replace_numbering_id(self, oldId, newId):
+      oldp = self.find_numbering_paragraph(oldId)
+      for p  in oldp :
+        self.set_numbering_id(p, newId)
      
   def insert_numbering_property(self, paragraph, lvl=0, nId=0, start=1, enum_prefix=None, enum_type=None):
     '''
@@ -793,10 +811,17 @@ class DocxComposer:
     else :
       num_id = str(nId)
       if num_id not in self.styleDocx.get_numbering_ids() :
+
 	if enum_prefix : lvl_text=enum_prefix
         newid = self.styleDocx.get_max_numbering_id()+1
 	if newid < nId : newid = nId
         num_id = str(self.new_ListNumber_style(newid, start, lvl_text, enum_type))
+#	print "new num_id = ", num_id
+
+#      else :
+#        if  int(num_id) <  self.styleDocx.get_max_numbering_id() :
+#          p = self.find_numbering_paragraph(num_id)
+#          print  p
 
     numId = self.makeelement('w:numId',attributes={'w:val': num_id})
     numPr.append(numId)
@@ -821,7 +846,7 @@ class DocxComposer:
 
     ind = get_elements(pPr[0], 'w:ind')
     if not ind :
-      ind = self.makeelement('w:ind',attributes={'w:left': str(lskip)})
+      ind = self.makeelement('w:ind',attributes={'w:leftChars':'0','w:left': str(lskip)})
       pPr[0].append(ind)
     else:
       self.set_attribute(ind[0], 'w:left', lskip)
@@ -956,6 +981,14 @@ class DocxComposer:
   def get_max_numbering_id(self):
     return self.styleDocx.get_max_numbering_id()
 
+  def get_ListNumber_style(self, nId):
+    elem = get_elements(self.styleDocx.numbering, 'w:num')
+    for x in elem :
+      if x.get(norm_name('w:numId')) == str(nId) :
+        return x
+    return None
+
+
   def new_ListNumber_style(self, nId, start_val=1, lvl_txt='%1.', typ=None):
     '''
       create new List Number style 
@@ -974,11 +1007,9 @@ class DocxComposer:
     lvlText = self.makeelement('w:lvlText', attributes={'w:val': lvl_txt})
     lvl.append(lvlText)
     typ =  get_enumerate_type(typ)
-#    print ">>> %d: %s  %s  %d <<<" % (newid, typ, lvl_txt, start_val)
+#    print ">>> %d: %s  %s  %d (%s)<<<" % (newid, typ, lvl_txt, start_val,orig_numid)
     numFmt = self.makeelement('w:numFmt', attributes={'w:val': typ})
     lvl.append(numFmt)
-#    lvlJc = self.makeelement('w:lvlJc', attributes={'w:val': "start"})
-#    lvl.append(lvlJc)
     lvlOverride.append(lvl)
 
     num.append(abstNum)
@@ -1017,46 +1048,99 @@ class DocxComposer:
     self.stylenames[styname] = styname
     return styname
 
-  def table(self, contents):
+  def insert_admonition_table(self, contents, title='Note: ', tstyle='noteAdmonition'):
+    '''
+      Admonition for sphinx, return a paragraph of content
+    '''
+    table = self.makeelement('w:tbl')
+
+    # Table properties: set full width and 
+    tableprops = self.makeelement('w:tblPr')
+    tableprops.append(self.makeelement('w:tblStyle',attributes={'w:val':tstyle}))
+    tableprops.append( self.makeelement('w:tblW',attributes={'w:w':'0','w:type':'auto'}))
+    tableprops.append( self.makeelement('w:jc',attributes={'w:val':'center'}))
+    table.append(tableprops)    
+
+    # Table Grid    
+    tablegrid = self.makeelement('w:tblGrid')
+    tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w': '8000'}))
+    table.append(tablegrid)     
+
+    # Heading
+    row = self.makeelement('w:tr')
+    cell = self.makeelement('w:tc')  
+    # Cell properties  
+    cellprops = self.makeelement('w:tcPr')
+    cellwidth = self.makeelement('w:tcW',attributes={'w:w':'8000','w:type':'dxa'})
+    cellprops.append(cellwidth)
+    cell.append(cellprops) 
+    # Set Title 
+    cell.append(self.paragraph(title, create_only=True))
+    row.append(cell)
+    table.append(row)            
+
+    # Contents 
+    row = self.makeelement('w:tr')     
+    content_cell = self.makeelement('w:tc')
+    # Cell Properties
+    cellprops = self.makeelement('w:tcPr')
+    cellwidth = self.makeelement('w:tcW',attributes={'w:type':'dxa'})
+    cellprops.append(cellwidth)
+    content_cell.append(cellprops)
+    # Paragraph (Content)
+    if contents :
+      content_cell.append(paragraph(contents, create_only=True))
+
+    row.append(content_cell)
+    table.append(row)   
+
+    self.docbody.append(table)
+
+    return content_cell
+
+  def table(self, contents, colsize=None, tstyle='rstTable'):
     '''
       Get a list of lists, return a table
       This function is copied from 'python-docx' library
     '''
     table = self.makeelement('w:tbl')
     columns = len(contents[0][0])    
+
+    if colsize is None : 
+        for i in range(columns):
+            colsize[i] = 2390
+
     # Table properties
     tableprops = self.makeelement('w:tblPr')
-    tablestyle = self.makeelement('w:tblStyle',attributes={'w:val':'ColorfulGrid-Accent1'})
+    tablestyle = self.makeelement('w:tblStyle',attributes={'w:val':tstyle})
     tablewidth = self.makeelement('w:tblW',attributes={'w:w':'0','w:type':'auto'})
-    tablelook = self.makeelement('w:tblLook',attributes={'w:val':'0400'})
-    for tableproperty in [tablestyle,tablewidth,tablelook]:
+
+    for tableproperty in [tablestyle,tablewidth]:
         tableprops.append(tableproperty)
+
     table.append(tableprops)    
     # Table Grid    
     tablegrid = self.makeelement('w:tblGrid')
-    for _ in range(columns):
-        tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w':'2390'}))
+    for i in range(columns):
+        tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w': str(colsize[i])}))
+
     table.append(tablegrid)     
     # Heading Row    
     row = self.makeelement('w:tr')
-    rowprops = self.makeelement('w:trPr')
-    cnfStyle = self.makeelement('w:cnfStyle',attributes={'w:val':'000000100000'})
-    rowprops.append(cnfStyle)
-    row.append(rowprops)
-    for heading in contents[0]:
+    for i,heading in enumerate(contents[0]):
         cell = self.makeelement('w:tc')  
         # Cell properties  
         cellprops = self.makeelement('w:tcPr')
-        cellwidth = self.makeelement('w:tcW',attributes={'w:w':'2390','w:type':'dxa'})
-        cellstyle = self.makeelement('w:shd',attributes={'w:val':'clear','w:color':'auto','w:fill':'548DD4','w:themeFill':'text2','w:themeFillTint':'99'})
+        cellwidth = self.makeelement('w:tcW',attributes={'w:w':str(colsize[i]),'w:type':'dxa'})
         cellprops.append(cellwidth)
-        cellprops.append(cellstyle)
-        cell.append(cellprops)        
+        cell.append(cellprops) 
+
         # Paragraph (Content)
         cell.append(self.paragraph(heading, create_only=True))
         row.append(cell)
     table.append(row)            
     # Contents Rows   
+
     for contentrow in contents[1:]:
         row = self.makeelement('w:tr')     
         for content in contentrow:   
