@@ -178,13 +178,10 @@ class DocxTranslator(nodes.NodeVisitor):
 
 	self.enum_prefix_style = []
 
-	self.enumprefix =  "%1."
-	self.enumprefix_type = "decimal"
-	self.start_num = 1
-
         self.field_name = None
 
         self.admonition_body = None
+        self.current_field_list = None
 
     def add_text(self, text):
         '''
@@ -1060,14 +1057,14 @@ class DocxTranslator(nodes.NodeVisitor):
           start=node['start']
 	except:
           pass
-	self.enumprefix =  "%s%%1%s" % (prefix,suffix)
-	self.enumprefix_type = enumtype
-	self.start_num = start
+	enumprefix =  "%s%%1%s" % (prefix,suffix)
+	enumprefix_type = enumtype
+	start_num = start
 
 	if self.current_block.count('Number_list') == 0 :
 	  self.num_list_id = self.max_num_list_id+1
 
-	self.enum_prefix_style.append([self.num_list_id, [self.start_num, self.enumprefix, self.enumprefix_type]])
+	self.enum_prefix_style.append([self.num_list_id, [start_num, enumprefix, enumprefix_type]])
         self.current_block.append('Number_list')
         self.list_style.append('ListNumber')
 	self.list_level += 1
@@ -1147,14 +1144,16 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_field_list(self, node):
         dprint()
+        self.flush_state()
+	self.current_field_list = self.docx.insert_field_list_table()
         pass
 
     def depart_field_list(self, node):
+        self.current_field_list = None
         dprint()
         pass
 
     def visit_field(self, node):
-        self.flush_state()
         dprint()
         pass
 
@@ -1169,7 +1168,9 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def depart_field_name(self, node):
         dprint()
-        self.field_name = self.states.pop()[0]
+	self.add_text(':')
+	self.docx.insert_field_list_item(self.current_field_list,self.states)
+        self.states=[[]]
         #raise nodes.SkipNode
         #self.add_text(':')
         #self.end_state()
@@ -1181,17 +1182,20 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def depart_field_body(self, node):
         dprint()
-        registerd_style = ['Vendor','Version','Category' ]
+	lbody = self.docx.set_field_list_item(self.current_field_list, get_items_list(self.states), 1)
+        self.states=[[]]
 
-        if self.field_name in registerd_style :
-          self.states[-1].insert(0, self.field_name+': ')
-          style= "rst"+self.field_name
-        else:
-          self.states[-1].insert(0, ":"+self.field_name+":")
-          style=None
-
-        self.flush_state(style)
-        self.field_name = None
+#        registerd_style = ['Vendor','Version','Category' ]
+#
+#        if self.field_name in registerd_style :
+#          self.states[-1].insert(0, self.field_name+': ')
+#          style= "rst"+self.field_name
+#        else:
+#          self.states[-1].insert(0, ":"+self.field_name+":")
+#          style=None
+#
+#        self.flush_state(style)
+#        self.field_name = None
 
         #raise nodes.SkipNode
         #self.end_state()
@@ -1299,26 +1303,17 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_doctest_block(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #self.new_state()
 
     def depart_doctest_block(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #self.end_state()
 
     def visit_line_block(self, node):
         dprint()
         self.line_block_level += 1
-        #raise nodes.SkipNode
-        #self.new_state()
 
     def depart_line_block(self, node):
         dprint()
         self.line_block_level -= 1
-        #self.flush_state(True)
-        #raise nodes.SkipNode
-        #self.end_state()
 
     def visit_line(self, node):
         dprint()
@@ -1330,20 +1325,16 @@ class DocxTranslator(nodes.NodeVisitor):
     def depart_line(self, node):
         dprint()
         self.add_linebreak()
-        #self.flush_state(True)
         pass
 
     def visit_block_quote(self, node):
-        # FIXME: working but broken.
         dprint()
         self.flush_state()
-	#self.list_level += 1
         self.block_level += 1
         self.new_state()
 
     def depart_block_quote(self, node):
         dprint()
-	#self.list_level -= 1
         self.flush_state()
         self.block_level -= 1
         self.end_state()
@@ -1373,7 +1364,7 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_target(self, node):
         dprint()
-        #raise nodes.SkipNode
+        raise nodes.SkipNode
 
     def visit_index(self, node):
         dprint()

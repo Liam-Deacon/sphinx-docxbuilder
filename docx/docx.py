@@ -88,8 +88,23 @@ def get_elements(xml, path, ns=nsprefixes):
     try:
       result = xml.xpath(path, namespaces=ns)
     except:
-       pass
+      pass
     return result
+
+def append_element(elem, xml, path=None, index=0, ns=nsprefixes):
+    '''
+       Append an Element
+    '''
+    try:
+      dist = xml
+      if path :
+        dist = xml.xpath(path, namespaces=ns)
+      dist[index].append(elem)
+      return True
+    except:
+      print "Error  in append_element"
+
+    return False
 
 def find_file(filename, child_dir=None):
     '''
@@ -114,6 +129,7 @@ def get_enumerate_type(typ):
     typ="decimal"
     pass
   return  typ
+
 #
 #  DocxDocument class
 #   This class for analizing docx-file
@@ -187,6 +203,7 @@ class DocxDocument:
     width = int(self.paper_size.get(norm_name('w:w'))) - int(self.paper_margin.get(norm_name('w:right'))) -int(self.paper_margin.get(norm_name('w:left'))) 
     height = int(self.paper_size.get(norm_name('w:h'))) - int(self.paper_margin.get(norm_name('w:top'))) -int(self.paper_margin.get(norm_name('w:bottom'))) 
 
+    # paper info: unit ---> 2099 mm = 11900 paper_unit
     self.document_width = int(width * 2099 / 11900)  # mm
     self.document_height = int(height * 2970 / 16840)  # mm
 
@@ -306,27 +323,6 @@ class DocxDocument:
                     element.text = re.sub(search,replace,element.text)
     return newdocument
 
-  def get_numbering_left(self, style):
-    '''
-       get numbering indeces
-    '''
-    abstractNums=get_elements(self.numbering, 'w:abstractNum')
-
-    indres=[0]
-
-    for x in abstractNums :
-      styles=get_elements(x, 'w:lvl/w:pStyle')
-      if styles :
-        pstyle_name = styles[0].get(norm_name('w:val') )
-        if pstyle_name == style :
-          ind=get_elements(x, 'w:lvl/w:pPr/w:ind')
-	  if ind :
-            indres=[]
-	    for indx in ind :
-              indres.append(int(indx.get(norm_name('w:left'))))
-          return indres
-    return indres
-
 ############
 ##  Numbering
   def get_numbering_style_id(self, style):
@@ -357,6 +353,27 @@ class DocxDocument:
       for x in num_ids :
 	if int(x) > max_id :  max_id = int(x)
       return max_id
+
+  def get_numbering_left(self, style):
+    '''
+       get numbering indeces
+    '''
+    abstractNums=get_elements(self.numbering, 'w:abstractNum')
+
+    indres=[0]
+
+    for x in abstractNums :
+      styles=get_elements(x, 'w:lvl/w:pStyle')
+      if styles :
+        pstyle_name = styles[0].get(norm_name('w:val') )
+        if pstyle_name == style :
+          ind=get_elements(x, 'w:lvl/w:pPr/w:ind')
+	  if ind :
+            indres=[]
+	    for indx in ind :
+              indres.append(int(indx.get(norm_name('w:left'))))
+          return indres
+    return indres
 
 
 ##########
@@ -413,6 +430,8 @@ class DocxComposer:
     self.category = ""
     self.descriptions = ""
     self.keywords = []
+    self.max_table_width = 8000
+    self.sizeof_field_list = [2000,6000]
 
 
     if stylefile == None :
@@ -455,12 +474,6 @@ class DocxComposer:
        Delete the temporary directory which we use compose a new document. 
     '''
     shutil.rmtree(self.template_dir, True)
-
-  def get_numbering_left(self, style):
-    '''
-       Get numbering indeces...
-    '''
-    return self.styleDocx.get_numbering_left(style)
 
   def new_document(self, stylefile):
     '''
@@ -655,6 +668,8 @@ class DocxComposer:
     sdt.append(sdtContent)
     self.docbody.append(sdt)
 
+#################
+####       Output PageBreak
   def pagebreak(self,type='page', orient='portrait'):
     '''
       Insert a break, default 'page'.
@@ -688,6 +703,8 @@ class DocxComposer:
     self.breakbrefore = True
     return pagebreak    
 
+#################
+####       Output Paragraph
   def paragraph(self, paratext, style='BodyText', block_level=0, create_only=False):
     '''
       Make a new paragraph element, containing a run, and some text. 
@@ -750,90 +767,6 @@ class DocxComposer:
       return 'BodyText'
     return pStyle[0].attrib[norm_name('w:val')]
 
-  def get_numbering_indent(self, style='ListBullet', lvl=0, nId=0):
-    '''
-       Get indenent value
-    '''
-    result = 0
-
-    if style == 'ListBullet' or nId == 0 :
-      if len(self.bullet_list_indents) > lvl :
-        result = self.bullet_list_indents[lvl]
-      else:
-        result = self.bullet_list_indents[-1]
-    else:
-      result = self.number_list_indent * (lvl+1)
-
-    return result
-     
-  def find_numbering_paragraph(self, nId):
-    result =[]
-    for p in self.docbody :
-      elem = get_elements(p, 'w:pPr/w:numPr/w:numId')
-      for x in elem:
-        if int(x.attrib[norm_name('w:val')]) == int(nId) :
-          result.append(p)
-    return result
-
-  def set_numbering_id(self, paragraph, nId):
-      elem = get_elements(paragraph, 'w:pPr/w:numPr/w:numId')
-      if elem :
-        elem[0].set(norm_name('w:val'), str(nId))
-
-  def replace_numbering_id(self, oldId, newId):
-      oldp = self.find_numbering_paragraph(oldId)
-      for p  in oldp :
-        self.set_numbering_id(p, newId)
-     
-  def insert_numbering_property(self, paragraph, lvl=0, nId=0, start=1, enum_prefix=None, enum_type=None):
-    '''
-       Insert paragraph property element with style.
-    '''
-    style=self.get_paragraph_style(paragraph)
-    pPr = get_elements(paragraph, 'w:pPr')
-    if not pPr :
-      self.insert_paragraph_property(paragraph)
-      pPr = get_elements(paragraph, 'w:pPr')
-
-    numPr = self.makeelement('w:numPr')
-    if style == 'ListNumber':
-      ilvl = self.makeelement('w:ilvl',attributes={'w:val': '0'})
-    else:
-      ilvl = self.makeelement('w:ilvl',attributes={'w:val': str(lvl)})
-    numPr.append(ilvl)
-
-    lvl_text='%1.'
-    if nId <= 0 :
-      if nId == 0 :
-        num_id = '0'
-      else :
-        num_id = self.styleDocx.get_numbering_style_id(style)
-    else :
-      num_id = str(nId)
-      if num_id not in self.styleDocx.get_numbering_ids() :
-
-	if enum_prefix : lvl_text=enum_prefix
-        newid = self.styleDocx.get_max_numbering_id()+1
-	if newid < nId : newid = nId
-        num_id = str(self.new_ListNumber_style(newid, start, lvl_text, enum_type))
-#	print "new num_id = ", num_id
-
-#      else :
-#        if  int(num_id) <  self.styleDocx.get_max_numbering_id() :
-#          p = self.find_numbering_paragraph(num_id)
-#          print  p
-
-    numId = self.makeelement('w:numId',attributes={'w:val': num_id})
-    numPr.append(numId)
-
-    pPr[0].append(numPr)
-
-    sty = self.get_paragraph_style(paragraph)
-    ind = self.get_numbering_indent(sty, lvl, nId)
-    self.set_indent(paragraph, ind)
-
-    #print ">>> numId: indent=%s, nId=%d, num_id=%s, (%s) [%s]" % (ind, nId, num_id, enum_type, lvl_text)
-    return pPr
 
   def set_indent(self, paragraph, lskip):
     '''
@@ -947,6 +880,8 @@ class DocxComposer:
     self.last_paragraph.append(run)    
     return run
 
+########
+##     Output Headinng
   def heading(self, headingtext, headinglevel):
     '''
       Make a heading
@@ -962,6 +897,8 @@ class DocxComposer:
 
     return paragraph   
 
+########
+##    Output ListItem
   def list_item(self, itemtext, style='ListBullet', lvl=1, nid=0, enum_prefix=None, enum_prefix_type=None, start=1):
     '''
       Make a new list paragraph
@@ -978,6 +915,92 @@ class DocxComposer:
 
     return paragraph   
 
+########
+##      Numbering Style
+
+  def get_numbering_left(self, style):
+    '''
+       Get numbering indeces...
+    '''
+    return self.styleDocx.get_numbering_left(style)
+
+  def get_numbering_indent(self, style='ListBullet', lvl=0, nId=0):
+    '''
+       Get indenent value
+    '''
+    result = 0
+
+    if style == 'ListBullet' or nId == 0 :
+      if len(self.bullet_list_indents) > lvl :
+        result = self.bullet_list_indents[lvl]
+      else:
+        result = self.bullet_list_indents[-1]
+    else:
+      result = self.number_list_indent * (lvl+1)
+
+    return result
+     
+  def find_numbering_paragraph(self, nId):
+    result =[]
+    for p in self.docbody :
+      elem = get_elements(p, 'w:pPr/w:numPr/w:numId')
+      for x in elem:
+        if int(x.attrib[norm_name('w:val')]) == int(nId) :
+          result.append(p)
+    return result
+
+  def set_numbering_id(self, paragraph, nId):
+      elem = get_elements(paragraph, 'w:pPr/w:numPr/w:numId')
+      if elem :
+        elem[0].set(norm_name('w:val'), str(nId))
+
+  def replace_numbering_id(self, oldId, newId):
+      oldp = self.find_numbering_paragraph(oldId)
+      for p  in oldp :
+        self.set_numbering_id(p, newId)
+     
+  def insert_numbering_property(self, paragraph, lvl=0, nId=0, start=1, enum_prefix=None, enum_type=None):
+    '''
+       Insert paragraph property element with style.
+    '''
+    style=self.get_paragraph_style(paragraph)
+    pPr = get_elements(paragraph, 'w:pPr')
+    if not pPr :
+      self.insert_paragraph_property(paragraph)
+      pPr = get_elements(paragraph, 'w:pPr')
+
+    numPr = self.makeelement('w:numPr')
+    if style == 'ListNumber':
+      ilvl = self.makeelement('w:ilvl',attributes={'w:val': '0'})
+    else:
+      ilvl = self.makeelement('w:ilvl',attributes={'w:val': str(lvl)})
+    numPr.append(ilvl)
+
+    lvl_text='%1.'
+    if nId <= 0 :
+      if nId == 0 :
+        num_id = '0'
+      else :
+        num_id = self.styleDocx.get_numbering_style_id(style)
+    else :
+      num_id = str(nId)
+      if num_id not in self.styleDocx.get_numbering_ids() :
+
+	if enum_prefix : lvl_text=enum_prefix
+        newid = self.styleDocx.get_max_numbering_id()+1
+	if newid < nId : newid = nId
+        num_id = str(self.new_ListNumber_style(newid, start, lvl_text, enum_type))
+
+    numId = self.makeelement('w:numId',attributes={'w:val': num_id})
+    numPr.append(numId)
+
+    pPr[0].append(numPr)
+
+    sty = self.get_paragraph_style(paragraph)
+    ind = self.get_numbering_indent(sty, lvl, nId)
+    self.set_indent(paragraph, ind)
+
+    return pPr
   def get_max_numbering_id(self):
     return self.styleDocx.get_max_numbering_id()
 
@@ -987,7 +1010,6 @@ class DocxComposer:
       if x.get(norm_name('w:numId')) == str(nId) :
         return x
     return None
-
 
   def new_ListNumber_style(self, nId, start_val=1, lvl_txt='%1.', typ=None):
     '''
@@ -1007,7 +1029,6 @@ class DocxComposer:
     lvlText = self.makeelement('w:lvlText', attributes={'w:val': lvl_txt})
     lvl.append(lvlText)
     typ =  get_enumerate_type(typ)
-#    print ">>> %d: %s  %s  %d (%s)<<<" % (newid, typ, lvl_txt, start_val,orig_numid)
     numFmt = self.makeelement('w:numFmt', attributes={'w:val': typ})
     lvl.append(numFmt)
     lvlOverride.append(lvl)
@@ -1018,6 +1039,8 @@ class DocxComposer:
     self.styleDocx.numbering.append(num)
     return  newid
 
+########## 
+##      Create New Style
   def new_character_style(self, styname):
     newstyle = self.makeelement('w:style', attributes={'w:type':'character','w:customStye':'1', 'w:styleId': styname})
     name = self.makeelement('w:name', attributes={'w:val': styname})
@@ -1048,112 +1071,125 @@ class DocxComposer:
     self.stylenames[styname] = styname
     return styname
 
-  def insert_admonition_table(self, contents, title='Note: ', tstyle='noteAdmonition'):
+############
+## Table
+  
+  def get_table_cell(self, table, pos):
+    try:
+      rows = get_elements(table, 'w:tr')
+      if len(rows) > pos[1] :
+        return get_elements(rows[pos[1]], 'w:tc')[pos[0]]
+      else :
+        print  "Invalid position", pos
+    except:
+      print  "Error in get_table_cell", pos
+    return None
+
+  def append_paragrap_to_table_cell(self, table, paragraph, pos):
+    cell = self.get_table_cell(table, pos)
+    if len(cell) > 0 :
+      cell.append(paragraph)
+    return cell
+
+  def create_table_row(self, n_cells, cellsize=None, contents=None):
+      row = self.makeelement('w:tr')     
+      for i in range(n_cells):   
+        cell = self.makeelement('w:tc')
+        # Properties
+        cellprops = self.makeelement('w:tcPr')
+	if cellsize :
+          cellwidth = self.makeelement('w:tcW',attributes={'w:w':str(cellsize[i]),'w:type':'dxa'})
+          cellprops.append(cellwidth)
+
+        cell.append(cellprops)
+
+	if contents :
+          cell.append(self.paragraph(contents[i], create_only=True))
+
+        # Paragraph (Content)
+        row.append(cell)    
+      return row
+
+  def create_table(self, colsize, tstyle='NormalTable'):
     '''
-      Admonition for sphinx, return a paragraph of content
+      Create table
     '''
     table = self.makeelement('w:tbl')
 
-    # Table properties: set full width and 
-    tableprops = self.makeelement('w:tblPr')
-    tableprops.append(self.makeelement('w:tblStyle',attributes={'w:val':tstyle}))
-    tableprops.append( self.makeelement('w:tblW',attributes={'w:w':'0','w:type':'auto'}))
-    tableprops.append( self.makeelement('w:jc',attributes={'w:val':'center'}))
-    table.append(tableprops)    
+    # Table properties
+    tblprops = self.makeelement('w:tblPr')
+    tblprops.append(self.makeelement('w:tblStyle',attributes={'w:val':tstyle}))
+    tblprops.append(self.makeelement('w:tblW',attributes={'w:w':'0','w:type':'auto'}))
+    table.append(tblprops)    
 
     # Table Grid    
     tablegrid = self.makeelement('w:tblGrid')
-    tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w': '8000'}))
-    table.append(tablegrid)     
+    for csize in colsize:
+        tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w': str(csize)}))
+    table.append(tablegrid)
 
-    # Heading
-    row = self.makeelement('w:tr')
-    cell = self.makeelement('w:tc')  
-    # Cell properties  
-    cellprops = self.makeelement('w:tcPr')
-    cellwidth = self.makeelement('w:tcW',attributes={'w:w':'8000','w:type':'dxa'})
-    cellprops.append(cellwidth)
-    cell.append(cellprops) 
-    # Set Title 
-    cell.append(self.paragraph(title, create_only=True))
-    row.append(cell)
-    table.append(row)            
+    return table                 
 
-    # Contents 
-    row = self.makeelement('w:tr')     
-    content_cell = self.makeelement('w:tc')
-    # Cell Properties
-    cellprops = self.makeelement('w:tcPr')
-    cellwidth = self.makeelement('w:tcW',attributes={'w:type':'dxa'})
-    cellprops.append(cellwidth)
-    content_cell.append(cellprops)
-    # Paragraph (Content)
-    if contents :
-      content_cell.append(paragraph(contents, create_only=True))
+##############
+###### for reStructuredText (FieldList and Admonitions)
+  def get_last_field_list_body(self, table):
+    row = get_elements(table, 'w:tr')[-1]
+    return get_elements(row, 'w:tc')[1]
 
-    row.append(content_cell)
-    table.append(row)   
+  def set_field_list_item(self, table, contents, n=0):
+    row = get_elements(table, 'w:tr')[-1]
+    cell = get_elements(row, 'w:tc')[n]
+    if isinstance(contents, str) :
+      cell.append(self.paragraph(contents, create_only=True))
+    elif isinstance(contents, list) :
+      for x in contents: 
+        cell.append(self.paragraph(x, create_only=True))
+    else :
+      print "Invalid parameter:", contents
 
+  def insert_field_list_item(self, table, contents, n=0):
+    row = self.create_table_row(2, self.sizeof_field_list)
+    table.append(row)
+    self.set_field_list_item(table, contents, n)
+
+  def insert_field_list_table(self):
+    table = self.create_table(self.sizeof_field_list,tstyle='FieldList')
+    self.docbody.append(table)
+    return table
+
+  def insert_admonition_table(self, contents, title='Note: ', tstyle='NoteAdmonition'):
+    table = self.create_table([self.max_table_width], tstyle=tstyle)
+    for i in range(2) :
+      row = self.create_table_row(1)
+      table.append(row)
+    
+    self.append_paragrap_to_table_cell(table, self.paragraph(title, create_only=True) , [0,0])
     self.docbody.append(table)
 
-    return content_cell
+    return self.get_table_cell(table, [0,1])
 
+##############
+######  Support a simple table only
   def table(self, contents, colsize=None, tstyle='rstTable'):
     '''
       Get a list of lists, return a table
       This function is copied from 'python-docx' library
     '''
-    table = self.makeelement('w:tbl')
-    columns = len(contents[0][0])    
+    columns = len(contents[0])    
 
     if colsize is None : 
         for i in range(columns):
-            colsize[i] = 2390
+            colsize[i] = 2400
+    sizeof_table = 0
+    for n in colsize :
+       sizeof_table += n
 
-    # Table properties
-    tableprops = self.makeelement('w:tblPr')
-    tablestyle = self.makeelement('w:tblStyle',attributes={'w:val':tstyle})
-    tablewidth = self.makeelement('w:tblW',attributes={'w:w':'0','w:type':'auto'})
+    colsize[-1] += self.max_table_width - sizeof_table
 
-    for tableproperty in [tablestyle,tablewidth]:
-        tableprops.append(tableproperty)
-
-    table.append(tableprops)    
-    # Table Grid    
-    tablegrid = self.makeelement('w:tblGrid')
-    for i in range(columns):
-        tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w': str(colsize[i])}))
-
-    table.append(tablegrid)     
-    # Heading Row    
-    row = self.makeelement('w:tr')
-    for i,heading in enumerate(contents[0]):
-        cell = self.makeelement('w:tc')  
-        # Cell properties  
-        cellprops = self.makeelement('w:tcPr')
-        cellwidth = self.makeelement('w:tcW',attributes={'w:w':str(colsize[i]),'w:type':'dxa'})
-        cellprops.append(cellwidth)
-        cell.append(cellprops) 
-
-        # Paragraph (Content)
-        cell.append(self.paragraph(heading, create_only=True))
-        row.append(cell)
-    table.append(row)            
-    # Contents Rows   
-
-    for contentrow in contents[1:]:
-        row = self.makeelement('w:tr')     
-        for content in contentrow:   
-            cell = self.makeelement('w:tc')
-            # Properties
-	    cellprops = self.makeelement('w:tcPr')
-	    cellwidth = self.makeelement('w:tcW',attributes={'w:type':'dxa'})
-            cellprops.append(cellwidth)
-            cell.append(cellprops)
-            # Paragraph (Content)
-            cell.append(self.paragraph(content, create_only=True))
-            row.append(cell)    
-        table.append(row)   
+    table = self.create_table(colsize, tstyle=tstyle)
+    for x in contents :
+      row = self.create_table_row(columns, colsize, x)
+      table.append(row)            
 
     self.docbody.append(table)
     return table                 
