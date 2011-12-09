@@ -1163,42 +1163,20 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_field_name(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #self.new_state()
 
     def depart_field_name(self, node):
         dprint()
 	self.add_text(':')
 	self.docx.insert_field_list_item(self.current_field_list,self.states)
         self.states=[[]]
-        #raise nodes.SkipNode
-        #self.add_text(':')
-        #self.end_state()
 
     def visit_field_body(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #self.new_state()
 
     def depart_field_body(self, node):
         dprint()
 	lbody = self.docx.set_field_list_item(self.current_field_list, get_items_list(self.states), 1)
         self.states=[[]]
-
-#        registerd_style = ['Vendor','Version','Category' ]
-#
-#        if self.field_name in registerd_style :
-#          self.states[-1].insert(0, self.field_name+': ')
-#          style= "rst"+self.field_name
-#        else:
-#          self.states[-1].insert(0, ":"+self.field_name+":")
-#          style=None
-#
-#        self.flush_state(style)
-#        self.field_name = None
-
-        #raise nodes.SkipNode
-        #self.end_state()
 
     def visit_centered(self, node):
         dprint()
