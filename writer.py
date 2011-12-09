@@ -76,7 +76,7 @@ def remove_items(src, target):
 def get_items_list(src):
   result=[]
   for x in src:
-    if x :
+    if x  and x != [[]]:
       result.append(x)
   return result
 
@@ -182,6 +182,7 @@ class DocxTranslator(nodes.NodeVisitor):
 
         self.admonition_body = None
         self.current_field_list = None
+        self.current_option_list = None
 
         self.option = []
 
@@ -738,22 +739,25 @@ class DocxTranslator(nodes.NodeVisitor):
     def visit_option_list(self, node):
         dprint()
 	self.flush_state()
+	self.current_option_list = self.docx.insert_option_list_table()
         pass
 
     def depart_option_list(self, node):
         dprint()
+	self.current_option_list = None
         pass
 
     def visit_option_list_item(self, node):
         dprint()
-	self.flush_state()
         #raise nodes.SkipNode
         #self.new_state()
 
     def depart_option_list_item(self, node):
         dprint()
-	self.states[-1].insert(0,'    ')
-	self.flush_state()
+#	self.states[-1].insert(0,'    ')
+        self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states))
+#	self.flush_state()
+	self.states=[[]]
         #raise nodes.SkipNode
         #self.end_state()
 
@@ -766,18 +770,13 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
 	if self.states[-1][-1] == ', ' :
 	  self.states[-1].pop()
-	self.flush_state()
-        self.option = []
+        self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states))
+	self.states=[[]]
         #raise nodes.SkipNode
         #self.add_text('     ')
 
     def visit_option(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #if self._firstoption:
-        #    self._firstoption = False
-        #else:
-        #    self.add_text(', ')
 
     def depart_option(self, node):
         self.add_text(', ')
@@ -798,8 +797,6 @@ class DocxTranslator(nodes.NodeVisitor):
           self.add_text('=')
         else :
           self.add_text(' ')
-        #raise nodes.SkipNode
-        #self.add_text(node['delimiter'])
 
     def depart_option_argument(self, node):
         dprint()

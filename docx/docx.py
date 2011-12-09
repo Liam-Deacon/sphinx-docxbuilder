@@ -431,7 +431,7 @@ class DocxComposer:
     self.descriptions = ""
     self.keywords = []
     self.max_table_width = 8000
-    self.sizeof_field_list = [2000,6000]
+    self.sizeof_field_list = [2000,5500]
 
 
     if stylefile == None :
@@ -1097,7 +1097,7 @@ class DocxComposer:
         cell = self.makeelement('w:tc')
         # Properties
         cellprops = self.makeelement('w:tcPr')
-	if cellsize :
+	if cellsize > 0:
           cellwidth = self.makeelement('w:tcW',attributes={'w:w':str(cellsize[i]),'w:type':'dxa'})
           cellprops.append(cellwidth)
 
@@ -1119,7 +1119,7 @@ class DocxComposer:
     # Table properties
     tblprops = self.makeelement('w:tblPr')
     tblprops.append(self.makeelement('w:tblStyle',attributes={'w:val':tstyle}))
-    tblprops.append(self.makeelement('w:tblW',attributes={'w:w':'0','w:type':'auto'}))
+    tblprops.append(self.makeelement('w:tblW',attributes={'w:w':str(self.max_table_width),'w:type':'mm'}))
     table.append(tblprops)    
 
     # Table Grid    
@@ -1154,6 +1154,23 @@ class DocxComposer:
 
   def insert_field_list_table(self):
     table = self.create_table(self.sizeof_field_list,tstyle='FieldList')
+    self.docbody.append(table)
+    return table
+
+  def insert_option_list_item(self, table, contents):
+    row = self.create_table_row(1, [self.max_table_width - 500] )
+    table.append(row)
+    cell = get_elements(row, 'w:tc')[0]
+    if isinstance(contents, str) :
+      cell.append(self.paragraph(contents, create_only=True))
+    elif isinstance(contents, list) :
+      for x in contents: 
+        cell.append(self.paragraph(x, create_only=True))
+    else :
+      print "Invalid parameter:", contents
+
+  def insert_option_list_table(self):
+    table = self.create_table([self.max_table_width -500],tstyle='OptionList')
     self.docbody.append(table)
     return table
 
