@@ -735,6 +735,7 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_option_list(self, node):
         dprint()
+	self.flush_state()
         pass
 
     def depart_option_list(self, node):
@@ -743,11 +744,14 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_option_list_item(self, node):
         dprint()
+	self.flush_state()
         #raise nodes.SkipNode
         #self.new_state()
 
     def depart_option_list_item(self, node):
         dprint()
+	self.states[-1].insert(0,'    ')
+	self.flush_state()
         #raise nodes.SkipNode
         #self.end_state()
 
