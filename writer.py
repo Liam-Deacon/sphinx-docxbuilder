@@ -183,6 +183,8 @@ class DocxTranslator(nodes.NodeVisitor):
         self.admonition_body = None
         self.current_field_list = None
 
+        self.option = []
+
     def add_text(self, text):
         '''
 	   Add text in states
@@ -762,6 +764,10 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def depart_option_group(self, node):
         dprint()
+	if self.states[-1][-1] == ', ' :
+	  self.states[-1].pop()
+	self.flush_state()
+        self.option = []
         #raise nodes.SkipNode
         #self.add_text('     ')
 
@@ -774,6 +780,7 @@ class DocxTranslator(nodes.NodeVisitor):
         #    self.add_text(', ')
 
     def depart_option(self, node):
+        self.add_text(', ')
         dprint()
         pass
 
@@ -787,6 +794,10 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_option_argument(self, node):
         dprint()
+	if self.states[-1][-1][:2] == '--' :
+          self.add_text('=')
+        else :
+          self.add_text(' ')
         #raise nodes.SkipNode
         #self.add_text(node['delimiter'])
 
