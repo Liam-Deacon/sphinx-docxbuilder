@@ -994,19 +994,19 @@ class DocxTranslator(nodes.NodeVisitor):
         if width[1] == 'in': width = [width[0] * dip[0], 'px']
         if height[1] == 'in': height = [height[0] *dip[1], 'px']
 
-        #  Why we should shrink image size....
-        width[0] *= 0.77
-        height[0] *= 0.77
+        #  We shoule shulink image (multiply 72/96)
+        width[0] *= 0.75
+        height[0] *= 0.75
 
         # 
-        maxwidth = int(self.docx.styleDocx.document_width  * 0.284 )
+        maxwidth = int(self.docx.styleDocx.document_width  * 0.284 ) * 0.9
 
         if width[0] > maxwidth :
             ratio = height[0] / width[0]
             width[0] = maxwidth
             height[0] = width[0] * ratio
 
-        maxheight = int(self.docx.styleDocx.document_width  * 0.284 )
+        maxheight = int(self.docx.styleDocx.document_width  * 0.284 ) * 0.9
         if height[0] > maxheight :
             ratio = width[0] / height[0]
             height[0] = maxheight
