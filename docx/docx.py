@@ -123,12 +123,101 @@ def find_file(filename, child_dir=None):
     return fname
 
 def get_enumerate_type(typ):
+  '''
+       
+  '''
   try:
     typ=Enum_Types[typ]
   except:
     typ="decimal"
     pass
   return  typ
+
+def parse_tag_list(tag):
+  '''
+       
+  '''
+  tagname = ''
+  tagtext = ''
+  attributes = {}
+
+  if isinstance(tag,str) :
+    tagname=tag
+  elif isinstance(tag,list) :
+    tagname=tag[0]
+    taglen = len(tag)
+    if taglen > 1 :
+      if isinstance(tag[1],basestring) :
+        tagtext = tag[1]
+      else:
+        attributes = tag[1]
+    if taglen > 2:
+      if isinstance(tag[2],basestring) :
+        tagtext = tag[2]
+      else:
+        attributes = tag[2]
+  else:
+    print "Invalid tag:",tag
+
+  return tagname,attributes,tagtext
+
+def make_element_tree(arg):
+    '''
+       
+    '''
+    tagname,attributes,tagtext = parse_tag_list(arg[0])
+    children = arg[1:]
+    newele = etree.Element(norm_name(tagname), nsmap=nsprefixes)
+
+    if tagtext :
+      newele.text = tagtext
+
+    for attr in attributes:
+      newele.set(norm_name(attr), attributes[attr])
+
+    for child in children:
+      chld = make_element_tree(child)
+      if chld is not None :
+        newele.append(chld)
+
+    return newele
+
+def get_child_element(xml, p):
+    '''
+       
+    '''
+    elems = get_elements(xml, p)
+    if elems == [] :
+      ele = make_element_tree([p])
+      xml.append(ele)
+      return ele
+    return elems[0]
+
+def set_attributes(xml, path, attributes):
+    '''
+       
+    '''
+    elems = get_elements(xml, path)
+    if elems == [] :
+      pathes = path.split('/')
+      elem=xml
+      for p in pathes:
+        elem = get_child_element(elem, p)
+    else:
+      elem = elems[0]
+
+    for attr in attributes:
+      elem.set(norm_name(attr), attributes[attr])
+    return elem
+
+def get_attribute(xml, path, name):
+    '''
+       
+    '''
+    elems = get_elements(xml, path)
+    if elems == [] :
+      return None
+    return elems[0].attrib[norm_name(name)]
 
 #
 #  DocxDocument class
@@ -326,6 +415,9 @@ class DocxDocument:
 ############
 ##  Numbering
   def get_numbering_style_id(self, style):
+    '''
+       
+    '''
     try:
       style_elems = get_elements(self.styles, '/w:styles/w:style')
       for style_elem in style_elems:
@@ -340,19 +432,25 @@ class DocxDocument:
     return '0'
 
   def get_numbering_ids(self):
-      num_elems = get_elements(self.numbering, '/w:numbering/w:num')
-      result = []
-      for num_elem in num_elems :
+    '''
+       
+    '''
+    num_elems = get_elements(self.numbering, '/w:numbering/w:num')
+    result = []
+    for num_elem in num_elems :
         nid = num_elem.attrib[norm_name('w:numId')]
         result.append( nid )
-      return result
+    return result
 
   def get_max_numbering_id(self):
-      max_id = 0
-      num_ids = self.get_numbering_ids()
-      for x in num_ids :
-	if int(x) > max_id :  max_id = int(x)
-      return max_id
+    '''
+       
+    '''
+    max_id = 0
+    num_ids = self.get_numbering_ids()
+    for x in num_ids :
+      if int(x) > max_id :  max_id = int(x)
+    return max_id
 
   def get_numbering_left(self, style):
     '''
@@ -480,8 +578,7 @@ class DocxComposer:
        Preparing a new document
     '''
     self.set_style_file(stylefile)
-    self.document = self.makeelement('w:document')
-    self.document.append(self.makeelement('w:body'))
+    self.document = make_element_tree([['w:document'],[['w:body']]])
     self.docbody = get_elements(self.document, '/w:document/w:body')[0]
 
     self.relationships = self.relationshiplist()
@@ -537,40 +634,7 @@ class DocxComposer:
     shutil.rmtree(self.template_dir)
     return
     
-  def make_element(self,tagname,tagtext=None):
-    '''
-      Make an element without attributes
-    '''
-    newele = etree.Element(norm_name(tagname), nsmap=nsprefixes)
-    if tagtext :
-      newele.text = tagtext
-    return newele
-
-  def set_attribute(self, element, key, value):
-    '''
-      Set an attribute of the element
-    '''
-    element.set(norm_name(key), str(value))
-
-  def set_attributes(self, ele, attributes):
-    '''
-      Set attributes of the element
-    '''
-    if not attributes :
-      return
-
-    for attr in attributes:
-      ele.set(norm_name(attr), attributes[attr])
-
-  def makeelement(self,tagname,tagtext=None,attributes=None):
-    '''
-      Make an element with attributes
-    '''
-    newelement = self.make_element(tagname, tagtext)
-    if attributes :
-      self.set_attributes(newelement, attributes)
-    return newelement
-
+ ##################
   def append(self, para):
     '''
       Append paragraph to document
@@ -583,89 +647,43 @@ class DocxComposer:
     '''
       Insert the Table of Content
     '''
-    sdt = self.makeelement('w:sdt')
-    sdtPr = self.makeelement('w:sdtPr')
-    rPr = self.makeelement('w:rPr')
-    lang = self.makeelement('w:lang')
-    rPr.append(lang)
-    sdtPr.append(rPr)
+    toc_tree = [['w:sdt'],
+                  [['w:sdtPr'],
+                       [['w:rPr'], [['w:long']] ],
+                       [['w:docPartObj'], [['w:docPartGallery', {'w:val':'Table of Contents'}]], [['w:docPartUnique']] ]
+                  ]
+	       ]
 
-    docPartObj = self.makeelement('w:docPartObj')
-    docPartGallery = self.makeelement('w:docPartGallery', attributes={'w:val':'Table of Contents'})
-    docPartUnique = self.makeelement('w:docPartUnique')
-    docPartObj.append(docPartGallery)
-    docPartObj.append(docPartUnique)
-    sdtPr.append(docPartObj)
-
-    sdt.append(sdtPr)
-
-    sdtEndPr = self.makeelement('w:sdtEndPr')
-    rPr = self.makeelement('w:rPr')
-    rPr.append( self.makeelement('w:b', attributes={'w:val':'0'}) )
-    rPr.append( self.makeelement('w:bCs', attributes={'w:val':'0'}) )
-    rPr.append( self.makeelement('w:color', attributes={'w:val':'auto'}) )
-    rPr.append( self.makeelement('w:sz', attributes={'w:val':'24'}) )
-    rPr.append( self.makeelement('w:szCs', attributes={'w:val':'24'}) )
-    sdtEndPr.append(rPr)
-
-    sdtContent = self.makeelement('w:sdtContent')
-
-    p = self.makeelement('w:p')
-    pPr = self.makeelement('w:pPr')
-    pPr.append(self.makeelement('w:pStyle', attributes={'w:val':'a8'}))
-    p.append(pPr)
+    sdtContent_tree = [['w:sdtContent']]
 
     if toc_text :
-      r = self.makeelement('w:r')
-      rPr = self.makeelement('w:rPr')
-      rPr.append( self.makeelement('w:lang'))
-      r.append(rPr)
-      txt = self.makeelement('w:t', tagtext=toc_text)
-      r.append(txt)
-      p.append(r)
-      sdtContent.append(p)
+      style = 'a8'
+      p_tree = [['w:p'], [['w:pPr'], [['w:pStyle', {'w:val':style}]] ], [['w:r'], [['w:rPr'], [['w:long']] ], [['w:t',toc_text]] ] ]
+      sdtContent_tree.append(p_tree)
 
-    p = self.makeelement('w:p')
-    pPr = self.makeelement('w:pPr')
-    pPr.append(self.makeelement('w:pStyle', attributes={'w:val':'11'}))
-    tabs = self.makeelement('w:tabs')
-    tab = self.makeelement('w:tab', attributes={'w:val':'right', 'w:leader':'dot','w:pos':'8488'})
-    tabs.append(tab)
-    pPr.append(tabs)
-    rPr = self.makeelement('w:rPr')
-    rPr.append(self.makeelement('w:b', attributes={'w:val':'0'}))
-    rPr.append(self.makeelement('w:noProof'))
-    pPr.append(rPr)
-    p.append(pPr)
 
-    r = self.makeelement('w:r')
-    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'begin'}))
-    p.append(r)
+    style = '11'
+    p_tree = [['w:p'],
+		    [['w:pPr'],
+			    [['w:pStyle', {'w:val':style}]],
+			    [['w:tabs'], 
+				    [['w:tab',{'w:val':'right', 'w:leader':'dot','w:pos':'8488'}] ]
+		           ],
+			    [['w:rPr'], [['w:b',{'w:val':'0'}]], [['w:noProof']] ]
+	            ],
+                    [['w:r'],[['w:fldChar', {'w:fldCharType':'begin'}]]],
+                    [['w:r'],[['w:instrText', ' TOC \o "1-%d" \h \z \u ' % maxlevel , {'xml:space':'preserve'}]]],
+                    [['w:r'],[['w:fldChar', {'w:fldCharType':'separare'}]]],
+                    [['w:r'],[['w:fldChar', {'w:fldCharType':'end'}]]]
+	    ]
+    sdtContent_tree.append(p_tree)
 
-    r = self.makeelement('w:r')
-    r.append(self.makeelement('w:instrText', tagtext=' TOC \o "1-%d" \h \z \u ' % maxlevel , attributes={'xml:space':'preserve'}))
-    p.append(r)
+    p_tree = [['w:p'], [ ['w:r'], [['w:fldChar',{'w:fldCharType':'end'}]] ] ]
+    sdtContent_tree.append(p_tree)
 
-    r = self.makeelement('w:r')
-    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'separare'}))
-    p.append(r)
+    toc_tree.append(sdtContent_tree)
+    sdt = make_element_tree(toc_tree)
 
-    r = self.makeelement('w:r')
-    rPr = self.makeelement('w:rPr')
-    rPr.append(self.makeelement('w:b', attributes={'w:val':'0'}))
-    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'end'}))
-    p.append(r)
-
-    sdtContent.append(p)
-
-    p = self.makeelement('w:p')
-    r = self.makeelement('w:r')
-    r.append(self.makeelement('w:fldChar', attributes={'w:fldCharType':'end'}))
-    p.append(r)
-
-    sdtContent.append(p)
-
-    sdt.append(sdtContent)
     self.docbody.append(sdt)
 
 #################
@@ -680,32 +698,62 @@ class DocxComposer:
     '''
     # Need to enumerate different types of page breaks.
     validtypes = ['page', 'section']
+
+    pagebreak_tree = [['w:p']]
+
     if type not in validtypes:
         raise ValueError('Page break style "%s" not implemented. Valid styles: %s.' % (type, validtypes))
-    pagebreak = self.makeelement('w:p')
-    if type == 'page':
-        run = self.makeelement('w:r')
-	br = self.makeelement('w:br',attributes={'w:type':type})
-        run.append(br)
-        pagebreak.append(run)
-    elif type == 'section':
-        pPr = self.makeelement('w:pPr')
-	sectPr = self.makeelement('w:sectPr')
-        if orient == 'portrait':
-            pgSz = self.makeelement('w:pgSz',attributes={'w:w':'12240','w:h':'15840'})
-        elif orient == 'landscape':
-            pgSz = self.makeelement('w:pgSz',attributes={'w:h':'12240','w:w':'15840', 'w:orient':'landscape'})
-        sectPr.append(pgSz)
-        pPr.append(sectPr)
-        pagebreak.append(pPr)
 
+
+    if type == 'page':
+        run_tree = [['w:r'],[['w:br', {'w:type':'page'}]]]
+    elif type == 'section':
+        if orient == 'portrait':
+            attrs = {'w:w':'12240','w:h':'15840'}
+        elif orient == 'landscape':
+            attrs={'w:h':'12240','w:w':'15840', 'w:orient':'landscape'}
+        run_tree = [['w:pPr'],[['w:sectPr'], [['w:pgSz', attrs]] ] ]
+
+    pagebreak_tree.append(run_tree)
+
+    pagebreak = make_element_tree(pagebreak_tree)
     self.docbody.append(pagebreak)
     self.breakbrefore = True
     return pagebreak    
 
 #################
 ####       Output Paragraph
-  def paragraph(self, paratext, style='BodyText', block_level=0, create_only=False):
+  def make_paragraph(self, style='BodyText', block_level=0):
+    '''
+      Make a new paragraph element
+    '''
+    # if 'style' isn't defined, cretae new style.
+    if style not in self.stylenames :
+      self.new_paragraph_style(style)
+
+    # calcurate indent
+    ind = 0
+    if block_level > 0 :
+        ind = self.number_list_indent * block_level
+
+    # set paragraph tree
+    paragraph_tree = [['w:p'], 
+		    	[['w:pPr'], 
+	    			[['w:pStyle',{'w:val':style}]],
+    				[['w:ind',{'w:leftChars':'0','w:left': str(ind)} ]]
+	                ]
+		     ]
+
+    if self.breakbefore :
+        paragraph_tree.append( [['w:r'], [['w:lastRenderedPageBreak']]] )
+
+    # create paragraph
+    paragraph = make_element_tree(paragraph_tree)
+    return paragraph
+
+#################
+####       Output Paragraph
+  def paragraph(self, paratext=None, style='BodyText', block_level=0, create_only=False):
     '''
       Make a new paragraph element, containing a run, and some text. 
       Return the paragraph element.
@@ -715,27 +763,11 @@ class DocxComposer:
       paratext = paratext[0].splitlines()
       isliteralblock=True
 
-    # Make paragraph elements
-    paragraph = self.makeelement('w:p')
-    self.insert_paragraph_property(paragraph, style)
-                
-    run = None
-
-    # Insert lastRenderedPageBreak for assistive technologies like
-    # document narrators to know when a page break occurred.
-    if self.breakbefore :
-        run = self.makeelement('w:r')    
-	lastRenderedPageBreak = self.makeelement('w:lastRenderedPageBreak')
-        run.append(lastRenderedPageBreak)
-        paragraph.append(run)    
+    paragraph = self.make_paragraph(style, block_level)
 
     #  Insert a text run
     if paratext != None:
         self.make_runs(paragraph, paratext, isliteralblock)
-
-    if block_level > 0 :
-        ind = self.number_list_indent * block_level
-        self.set_indent(paragraph, ind)
 
     #  if the 'create_only' flag is True, append paragraph to the document
     if not create_only :
@@ -748,43 +780,33 @@ class DocxComposer:
     '''
        Insert paragraph property element with style.
     '''
-    pPr = self.makeelement('w:pPr')
     if style not in self.stylenames :
       self.new_paragraph_style(style)
     style = self.stylenames.get(style, 'BodyText')
-    pStyle = self.makeelement('w:pStyle',attributes={'w:val':style})
-    pPr.append(pStyle)
 
+    pPr = make_element_tree( [ ['w:pPr'], [['w:pStyle',{'w:val':style}]] ] )
     paragraph.append(pPr) 
     return paragraph
 
-  def get_paragraph_style(self, paragraph):
+  def get_paragraph_style(self, paragraph, force_create=False):
     '''
        Get stylename of the paragraph
     '''
-    pStyle = get_elements(paragraph, 'w:pPr/w:pStyle')
-    if not pStyle :
-      return 'BodyText'
-    return pStyle[0].attrib[norm_name('w:val')]
+    result = get_attribute(paragraph, 'w:pPr/w:pStyle', 'w:val')
+    if result is None :
+      if force_create :
+        self.insert_paragraph_property(paragraph)
+      result = 'BodyText'
 
+    return result
 
   def set_indent(self, paragraph, lskip):
     '''
        Set indent of paragraph
     '''
-    pPr = get_elements(paragraph, 'w:pPr')
-    if not pPr :
-      self.insert_paragraph_property(paragraph)
-      pPr = get_elements(paragraph, 'w:pPr')
+    ind = set_attributes(paragraph, 'w:pPr/w:ind', {'w:leftChars':'0','w:left': str(lskip)} ) 
 
-    ind = get_elements(pPr[0], 'w:ind')
-    if not ind :
-      ind = self.makeelement('w:ind',attributes={'w:leftChars':'0','w:left': str(lskip)})
-      pPr[0].append(ind)
-    else:
-      self.set_attribute(ind[0], 'w:left', lskip)
-
-    return pPr
+    return ind
 
   def make_runs(self, paragraph, targettext, literal_block=False):
     '''
@@ -808,32 +830,26 @@ class DocxComposer:
     '''
       Make a new styled run from text.
     '''
-    # Make run element
-    run = self.makeelement('w:r')  
 
+    run_tree = [['w:r']]
     if txt == ":br" :
-      text = self.makeelement('w:cr')
-      run.append(text)
+      run_tree.append([['w:cr']])
     else:
-      text = self.makeelement('w:t',tagtext=txt)
-
-      # if the txt contain spaces, we should add an attribute 'xml:space="preserve"' to w:text-tag.
+      attr ={}
       if txt.find(' ') != -1 :
-        self.set_attribute(text, 'xml:space','preserve')
+        attr ={'xml:space':'preserve'}
+
+      run_tree.append([['w:t', txt, attr]])
 
       if style != 'Normal' :
         if style not in self.stylenames :
           self.new_character_style(style)
 
-        style = self.stylenames.get(style, 'Normal')
-	rPr = self.makeelement('w:rPr')
-	rStyle = self.makeelement('w:rStyle',attributes={'w:val':style})
-        rPr.append(rStyle)
-        run.append(rPr)    
-                
-      # Add the text the run
-      run.append(text)    
+	run_tree.append([['w:rPr'], [['w:rStyle',{'w:val':style}]]])
 
+    # Make run element
+    run = make_element_tree(run_tree)
+                
     if not create_only :
       if self.last_paragraph == None:
         self.paragraph(None)
@@ -845,34 +861,28 @@ class DocxComposer:
     '''
       append line break in current paragraph
     '''
-    run = self.makeelement('w:r')    
-    text = self.makeelement('w:br','')
-    run.append(text)    
+    run = make_element_tree( [['w:r'],[['w:br']]] )
 
     if self.last_paragraph == None:
         self.paragraph(None)
 
     self.last_paragraph.append(run)    
+
     return run
 
   def add_space(self, style='Normal'):
     '''
       append a space in current paragraph
     '''
-    # Make rum element
-    run = self.makeelement('w:r')    
-    text = self.makeelement('w:t',' ', attributes={'xml:space':'preserve'})
-
     if style != 'Normal' :
-      rPr = self.makeelement('w:rPr')
       style = self.stylenames.get(style, 'Normal')
-      rStyle = self.makeelement('w:rStyle',attributes={'w:val':style})
-      rPr.append(rStyle)
-      run.append(rPr)    
-                
-    # Add the text the run
-    run.append(text)    
 
+    run_tree = [['w:r'],
+                    [['w:rPr'], [['w:rStyle', {'w:val':style}]]],
+		    [['w:t', ' ', {'xml:space':'preserve'}]]]
+
+    # Make rum element
+    run = make_element_tree(run_tree)
     if self.last_paragraph == None:
         self.paragraph(None)
 
@@ -887,7 +897,7 @@ class DocxComposer:
       Make a heading
     '''
     # Make paragraph element
-    paragraph = self.makeelement('w:p')
+    paragraph = make_element_tree(['w:p'])
     self.insert_paragraph_property(paragraph, 'Heading'+str(headinglevel))
 
     self.make_runs(paragraph, headingtext)
@@ -904,7 +914,7 @@ class DocxComposer:
       Make a new list paragraph
     '''
     # Make paragraph element
-    paragraph = self.makeelement('w:p')
+    paragraph = make_element_tree(['w:p'])
 
     self.insert_paragraph_property( paragraph, style)
     self.insert_numbering_property(paragraph, lvl-1, nid, start, enum_prefix, enum_prefix_type)
@@ -941,6 +951,9 @@ class DocxComposer:
     return result
      
   def find_numbering_paragraph(self, nId):
+    '''
+       
+    '''
     result =[]
     for p in self.docbody :
       elem = get_elements(p, 'w:pPr/w:numPr/w:numId')
@@ -950,31 +963,31 @@ class DocxComposer:
     return result
 
   def set_numbering_id(self, paragraph, nId):
-      elem = get_elements(paragraph, 'w:pPr/w:numPr/w:numId')
-      if elem :
+    '''
+       
+    '''
+    elem = get_elements(paragraph, 'w:pPr/w:numPr/w:numId')
+    if elem :
         elem[0].set(norm_name('w:val'), str(nId))
 
   def replace_numbering_id(self, oldId, newId):
-      oldp = self.find_numbering_paragraph(oldId)
-      for p  in oldp :
+    '''
+       
+    '''
+    oldp = self.find_numbering_paragraph(oldId)
+    for p  in oldp :
         self.set_numbering_id(p, newId)
      
   def insert_numbering_property(self, paragraph, lvl=0, nId=0, start=1, enum_prefix=None, enum_type=None):
     '''
        Insert paragraph property element with style.
     '''
-    style=self.get_paragraph_style(paragraph)
-    pPr = get_elements(paragraph, 'w:pPr')
-    if not pPr :
-      self.insert_paragraph_property(paragraph)
-      pPr = get_elements(paragraph, 'w:pPr')
+    style=self.get_paragraph_style(paragraph, force_create=True)
+    pPr = get_elements(paragraph, 'w:pPr')[0]
 
-    numPr = self.makeelement('w:numPr')
+    ilvl = lvl 
     if style == 'ListNumber':
-      ilvl = self.makeelement('w:ilvl',attributes={'w:val': '0'})
-    else:
-      ilvl = self.makeelement('w:ilvl',attributes={'w:val': str(lvl)})
-    numPr.append(ilvl)
+      ilvl = 0
 
     lvl_text='%1.'
     if nId <= 0 :
@@ -991,20 +1004,26 @@ class DocxComposer:
 	if newid < nId : newid = nId
         num_id = str(self.new_ListNumber_style(newid, start, lvl_text, enum_type))
 
-    numId = self.makeelement('w:numId',attributes={'w:val': num_id})
-    numPr.append(numId)
+    numPr_tree =[['w:numPr'], [['w:ilvl',{'w:val': str(ilvl)}]], [['w:numId',{'w:val': num_id}]] ]
+    numPr = make_element_tree(numPr_tree)
 
-    pPr[0].append(numPr)
+    pPr.append(numPr)
 
-    sty = self.get_paragraph_style(paragraph)
-    ind = self.get_numbering_indent(sty, lvl, nId)
+    ind = self.get_numbering_indent(style, lvl, nId)
     self.set_indent(paragraph, ind)
 
     return pPr
+
   def get_max_numbering_id(self):
+    '''
+       
+    '''
     return self.styleDocx.get_max_numbering_id()
 
   def get_ListNumber_style(self, nId):
+    '''
+       
+    '''
     elem = get_elements(self.styleDocx.numbering, 'w:num')
     for x in elem :
       if x.get(norm_name('w:numId')) == str(nId) :
@@ -1016,56 +1035,51 @@ class DocxComposer:
       create new List Number style 
     '''
     orig_numid = self.number_list_numId
-    #newid = int(max(self.styleDocx.get_numbering_ids()))+1
     newid = nId
-
-    num = self.makeelement('w:num', attributes={'w:numId':str(newid)})
-    abstNum = self.makeelement('w:abstrctNumId', attributes={'w:val':orig_numid})
-    lvlOverride = self.makeelement('w:lvlOverride', attributes={'w:ilvl':'0'})
-    start = self.makeelement('w:startOverride', attributes={'w:val':str(start_val)})
-    lvlOverride.append(start)
-
-    lvl = self.makeelement('w:lvl', attributes={'w:ilvl':'0'})
-    lvlText = self.makeelement('w:lvlText', attributes={'w:val': lvl_txt})
-    lvl.append(lvlText)
     typ =  get_enumerate_type(typ)
-    numFmt = self.makeelement('w:numFmt', attributes={'w:val': typ})
-    lvl.append(numFmt)
-    lvlOverride.append(lvl)
 
-    num.append(abstNum)
-    num.append(lvlOverride)
+    num_tree = [['w:num', {'w:numId':str(newid)}],
+                   [['w:abstrctNumId', {'w:val':orig_numid}] ],
+                   [['w:lvlOverride', {'w:ilvl':'0'}],
+                       [['w:startOverride', {'w:val':str(start_val)}]] ,
+                       [['w:lvl', {'w:ilvl':'0'}], [['w:lvlText', {'w:val': lvl_txt} ]],
+                                                   [['w:numFmt', {'w:val': typ} ]]
+                       ]
+		  ]
+               ]
 
+    num = make_element_tree(num_tree)
     self.styleDocx.numbering.append(num)
     return  newid
 
 ########## 
 ##      Create New Style
   def new_character_style(self, styname):
-    newstyle = self.makeelement('w:style', attributes={'w:type':'character','w:customStye':'1', 'w:styleId': styname})
-    name = self.makeelement('w:name', attributes={'w:val': styname})
-    base = self.makeelement('w:basedOn', attributes={'w:val': self.styleDocx.character_style_id})
-    rPr = self.makeelement('w:rPr')
-    clr = self.makeelement('w:color', attributes={'w:val': 'FF0000'})
-    rPr.append(clr)
+    '''
+       
+    '''
+    newstyle_tree = [['w:style', {'w:type':'character','w:customStye':'1', 'w:styleId': styname}],
+                         [['w:name', {'w:val': styname}]],
+                         [['w:basedOn', {'w:val': self.styleDocx.character_style_id}]],
+                         [['w:rPr'], [['w:color', {'w:val': 'FF0000'}]] ]
+                    ]
 
-    newstyle.append(name)
-    newstyle.append(base)
-    newstyle.append(rPr)
-
+    newstyle = make_element_tree(newstyle_tree)
     self.styleDocx.styles.append(newstyle)
     self.stylenames[styname] = styname
     return styname
 
   def new_paragraph_style(self, styname):
-    newstyle = self.makeelement('w:style', attributes={'w:type':'paragraph','w:customStye':'1', 'w:styleId': styname})
-    name = self.makeelement('w:name', attributes={'w:val': styname})
-    base = self.makeelement('w:basedOn', attributes={'w:val': self.styleDocx.paragraph_style_id})
-    qF = self.makeelement('w:qFormat')
+    '''
+       
+    '''
+    newstyle_tree = [['w:style', {'w:type':'paragraph','w:customStye':'1', 'w:styleId': styname}],
+                         [['w:name', {'w:val': styname}]],
+                         [['w:basedOn', {'w:val': self.styleDocx.paragraph_style_id}]],
+                         [['w:qFormat'] ]
+                    ]
 
-    newstyle.append(name)
-    newstyle.append(base)
-    newstyle.append(qF)
+    newstyle = make_element_tree(newstyle_tree)
 
     self.styleDocx.styles.append(newstyle)
     self.stylenames[styname] = styname
@@ -1075,6 +1089,9 @@ class DocxComposer:
 ## Table
   
   def get_table_cell(self, table, pos):
+    '''
+       
+    '''
     try:
       rows = get_elements(table, 'w:tr')
       if len(rows) > pos[1] :
@@ -1086,57 +1103,67 @@ class DocxComposer:
     return None
 
   def append_paragrap_to_table_cell(self, table, paragraph, pos):
+    '''
+       
+    '''
     cell = self.get_table_cell(table, pos)
     if len(cell) > 0 :
       cell.append(paragraph)
     return cell
 
   def create_table_row(self, n_cells, cellsize=None, contents=None):
-      row = self.makeelement('w:tr')     
-      for i in range(n_cells):   
-        cell = self.makeelement('w:tc')
-        # Properties
-        cellprops = self.makeelement('w:tcPr')
-	if cellsize > 0:
-          cellwidth = self.makeelement('w:tcW',attributes={'w:w':str(cellsize[i]),'w:type':'dxa'})
-          cellprops.append(cellwidth)
+    '''
+      Create table row
+    '''
+    row = make_element_tree([['w:tr']])
 
-        cell.append(cellprops)
+    for i in range(n_cells):   
+      cell = make_element_tree([['w:tc'], ['w:tcPr'] ])
+      row.append(cell)
 
-	if contents :
-          cell.append(self.paragraph(contents[i], create_only=True))
+      # Properties
+      cellprops = get_elements(cell,'w:tcPr')[0]
+      if cellsize > 0:
+        cellwidth = make_element_tree([['w:tcW',{'w:w':str(cellsize[i]),'w:type':'dxa'}]])
+        cellprops.append(cellwidth)
 
-        # Paragraph (Content)
-        row.append(cell)    
-      return row
+      if contents :
+        cell.append(self.paragraph(contents[i], create_only=True))
+
+      # Paragraph (Content)
+
+    return row
 
   def create_table(self, colsize, tstyle='NormalTable'):
     '''
       Create table
     '''
-    table = self.makeelement('w:tbl')
-
-    # Table properties
-    tblprops = self.makeelement('w:tblPr')
-    tblprops.append(self.makeelement('w:tblStyle',attributes={'w:val':tstyle}))
-    tblprops.append(self.makeelement('w:tblW',attributes={'w:w':str(self.max_table_width),'w:type':'mm'}))
-    table.append(tblprops)    
+    table_tree = [['w:tbl'],
+                  [['w:tblPr'], [['w:tblStyle',{'w:val':tstyle}]], [['w:tblW',{'w:w':'0','w:type':'auto'}]] ],
+		  ['w:tblGrid']
+                 ]
+    table = make_element_tree(table_tree)
 
     # Table Grid    
-    tablegrid = self.makeelement('w:tblGrid')
+    tablegrid = get_elements(table,'w:tblGrid')[0]
     for csize in colsize:
-        tablegrid.append(self.makeelement('w:gridCol',attributes={'w:w': str(csize)}))
-    table.append(tablegrid)
+        tablegrid.append(make_element_tree([['w:gridCol',{'w:w': str(csize)}]]))
 
     return table                 
 
 ##############
 ###### for reStructuredText (FieldList and Admonitions)
   def get_last_field_list_body(self, table):
+    '''
+       
+    '''
     row = get_elements(table, 'w:tr')[-1]
     return get_elements(row, 'w:tc')[1]
 
   def set_field_list_item(self, table, contents, n=0):
+    '''
+       
+    '''
     row = get_elements(table, 'w:tr')[-1]
     cell = get_elements(row, 'w:tc')[n]
     if isinstance(contents, str) :
@@ -1148,16 +1175,25 @@ class DocxComposer:
       print "Invalid parameter:", contents
 
   def insert_field_list_item(self, table, contents, n=0):
+    '''
+       
+    '''
     row = self.create_table_row(2, self.sizeof_field_list)
     table.append(row)
     self.set_field_list_item(table, contents, n)
 
   def insert_field_list_table(self):
+    '''
+       
+    '''
     table = self.create_table(self.sizeof_field_list,tstyle='FieldList')
     self.docbody.append(table)
     return table
 
   def insert_option_list_item(self, table, contents):
+    '''
+       
+    '''
     row = self.create_table_row(1, [self.max_table_width - 500] )
     table.append(row)
     cell = get_elements(row, 'w:tc')[0]
@@ -1170,11 +1206,17 @@ class DocxComposer:
       print "Invalid parameter:", contents
 
   def insert_option_list_table(self):
+    '''
+       
+    '''
     table = self.create_table([self.max_table_width -500],tstyle='OptionList')
     self.docbody.append(table)
     return table
 
   def insert_admonition_table(self, contents, title='Note: ', tstyle='NoteAdmonition'):
+    '''
+       
+    '''
     table = self.create_table([self.max_table_width], tstyle=tstyle)
     for i in range(2) :
       row = self.create_table_row(1)
@@ -1249,85 +1291,44 @@ class DocxComposer:
         'media/'+picname])
     
     # There are 3 main elements inside a picture
-    # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
-    blipfill = self.makeelement('pic:blipFill')
-    blipfill.append(self.makeelement('a:blip',attributes={'r:embed':picrelid}))
-    stretch = self.makeelement('a:stretch')
-    stretch.append(self.makeelement('a:fillRect'))
-    blipfill.append(self.makeelement('a:srcRect'))
-    blipfill.append(stretch)
-    
-    # 2. The non visual picture properties 
-    nvpicpr = self.makeelement('pic:nvPicPr')
-    cnvpr = self.makeelement('pic:cNvPr', attributes={'id':'0','name':'Picture 1','descr':picname}) 
-    nvpicpr.append(cnvpr) 
-    cnvpicpr = self.makeelement('pic:cNvPicPr')                           
-    cnvpicpr.append(self.makeelement('a:picLocks',
-                    attributes={'noChangeAspect':str(int(nochangeaspect)),
-                    'noChangeArrowheads':str(int(nochangearrowheads))}))
-    nvpicpr.append(cnvpicpr)
-        
-    # 3. The Shape properties
-    sppr = self.makeelement('pic:spPr',attributes={'bwMode':'auto'})
-    xfrm = self.makeelement('a:xfrm')
-    xfrm.append(self.makeelement('a:off',attributes={'x':'0','y':'0'}))
-    xfrm.append(self.makeelement('a:ext',attributes={'cx':width,'cy':height}))
-    prstgeom = self.makeelement('a:prstGeom',attributes={'prst':'rect'})
-    prstgeom.append(self.makeelement('a:avLst'))
-    sppr.append(xfrm)
-    sppr.append(prstgeom)
+    pic_tree = [['pic:pic'],
+                   [['pic:nvPicPr'],  # The non visual picture properties 
+                       [['pic:cNvPr', {'id':'0','name':'Picture 1','descr':picname}]],
+                       [['pic:cNvPicPr'], [ ['a:picLocks', {'noChangeAspect':str(int(nochangeaspect)), 'noChangeArrowheads':str(int(nochangearrowheads))} ] ] ]
+                   ],
+                   [['pic:blipFill'],  # The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
+                     [['a:blip',{'r:embed':picrelid}]],
+                     [['a:srcRect']],
+		     [['a:stretch'],[['a:fillRect']]]
+		   ],
+                   [['pic:spPr',{'bwMode':'auto'}],  #  The Shape properties
+		     [['a:xfrm'],[['a:off',{'x':'0','y':'0'} ]], [['a:ext',{'cx':width,'cy':height}]]],
+		     [['a:prstGeom',{'prst':'rect'}], ['a:avLst']],
+		     [['a:noFill']]
+		   ]
+	       ]
 
-    a_nofill = self.makeelement('a:noFill')
-    a_ln = self.makeelement('a:ln')
-    a_nofill2 = self.makeelement('a:noFill')
-    a_ln.append(a_nofill2)
-    sppr.append(a_nofill)
-    sppr.append(a_ln)
-    
-    # Add our 3 parts to the picture element
-    pic = self.makeelement('pic:pic')    
-    pic.append(nvpicpr)
-    pic.append(blipfill)
-    pic.append(sppr)
-    
-    # Now make the supporting elements
-    # The following sequence is just: make element, then add its children
-    graphicdata = self.makeelement('a:graphicData',
-        attributes={'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'})
-    graphicdata.append(pic)
-    graphic = self.makeelement('a:graphic')
-    graphic.append(graphicdata)
+    graphic_tree = [['a:graphic'],
+                      [['a:graphicData', {'uri':'http://schemas.openxmlformats.org/drawingml/2006/picture'}], pic_tree ]
 
-    framelocks = self.makeelement('a:graphicFrameLocks',attributes={'noChangeAspect':'1'})    
-    framepr = self.makeelement('wp:cNvGraphicFramePr')
-    framepr.append(framelocks)
-    docpr = self.makeelement('wp:docPr',
-        attributes={'id':picid,'name':'Picture 1','descr':picdescription})
-    effectextent = self.makeelement('wp:effectExtent',
-        attributes={'l':'25400','t':'0','r':'0','b':'0'})
-    extent = self.makeelement('wp:extent',attributes={'cx':width,'cy':height})
-    inline = self.makeelement('wp:inline',
-        attributes={'distT':"0",'distB':"0",'distL':"0",'distR':"0"})
-    inline.append(extent)
-    inline.append(effectextent)
-    inline.append(docpr)
-    inline.append(framepr)
-    inline.append(graphic)
-    drawing = self.makeelement('w:drawing')
-    drawing.append(inline)
-    run = self.makeelement('w:r')
-    rPr = self.makeelement('w:rPr')
-    noProof = self.makeelement('w:noProof')
-    rPr.append(noProof)
-    run.append(rPr)
-    run.append(drawing)
-    paragraph = self.makeelement('w:p')
-    pPr = self.makeelement('w:pPr')
-    jc = self.makeelement('w:jc', attributes={'w:val':align})
-    pPr.append(jc)
-    paragraph.append(pPr)
-    paragraph.append(run)
+		      ]
 
+    inline_tree = [['wp:inline',{'distT':"0",'distB':"0",'distL':"0",'distR':"0"}],
+                       [['wp:extent',{'cx':width,'cy':height}]],
+                       [['wp:effectExtent', {'l':'25400','t':'0','r':'0','b':'0'}]],
+                       [['wp:docPr', {'id':picid,'name':'Picture 1','descr':picdescription}]], 
+                       [['wp:cNvGraphicFramePr'], [['a:graphicFrameLocks',{'noChangeAspect':'1'} ]]],
+		       graphic_tree
+		       ]
+
+    paragraph_tree = [['w:p'],
+                         [['w:pPr'], [['w:jc', {'w:val':align}]]],
+			 [['w:r'], [['w:rPr'], [['w:noProof']]]],
+			 [['w:drawing'], inline_tree]
+			 ]
+
+
+    paragraph = make_element_tree(paragraph_tree)
     self.relationships = relationshiplist
     self.docbody.append(paragraph)
 
@@ -1353,11 +1354,6 @@ class DocxComposer:
         if 'PartName' in x.attrib
     ])
 
-    # FIXME - doesn't quite work...read from string as temp hack...
-    #types = self.makeelement('Types',nsprefix='ct')
-    types = etree.fromstring('''<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>''')
-    for part in parts:
-        types.append(self.makeelement('Override',attributes={'PartName':part,'ContentType':parts[part]}))
     # Add support for filetypes
     filetypes = {'rels':'application/vnd.openxmlformats-package.relationships+xml',
                  'xml':'application/xml',
@@ -1366,9 +1362,15 @@ class DocxComposer:
                  'gif':'image/gif',
                  'png':'image/png'}
 
-    for extension in filetypes:
-        types.append(self.makeelement('Default',attributes={'Extension':extension,'ContentType':filetypes[extension]}))
+    types_tree = [['ct:Types']]
 
+    for part in parts:
+      types_tree.append([['ct:Override',{'PartName':part,'ContentType':parts[part]}]])
+
+    for extension in filetypes:
+      types_tree.append([['ct:Default',{'Extension':extension,'ContentType':filetypes[extension]}]])
+
+    types = make_element_tree(types_tree)
     os.chdir(prev_dir)
     self._contenttypes = types
     return types
@@ -1379,28 +1381,28 @@ class DocxComposer:
       See appproperties() for other stuff.
        This function copied from 'python-docx' library
     '''
-
-    coreprops = self.makeelement('cp:coreProperties')    
-    coreprops.append(self.makeelement('dc:title',tagtext=self.title))
-    coreprops.append(self.makeelement('dc:subject',tagtext=self.subject))
-    coreprops.append(self.makeelement('dc:creator',tagtext=self.creator))
-    coreprops.append(self.makeelement('cp:keywords',tagtext=','.join(self.keywords)))    
     if not lastmodifiedby:
         lastmodifiedby = self.creator
-    coreprops.append(self.makeelement('cp:lastModifiedBy',tagtext=lastmodifiedby))
-    coreprops.append(self.makeelement('cp:revision',tagtext='1'))
-    coreprops.append(self.makeelement('cp:category',tagtext=self.category))
-    coreprops.append(self.makeelement('dc:description',tagtext=self.descriptions))
+
+    coreprops_tree = [['cp:coreProperties'],
+                        [['dc:title',self.title]],
+                        [['dc:subject',self.subject]],
+			[['dc:creator',self.creator]],
+                        [['cp:keywords',','.join(self.keywords)]],
+                        [['cp:lastModifiedBy',lastmodifiedby]],
+                        [['cp:revision','1']],
+                        [['cp:category',self.category]],
+                        [['dc:description',self.descriptions]]
+		]
+
     currenttime = time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    # Document creation and modify times
-    # Prob here: we have an attribute who name uses one namespace, and that 
-    # attribute's value uses another namespace.
-    # We're creating the lement from a string as a workaround...
     for doctime in ['created','modified']:
-        coreprops.append(etree.fromstring('''<dcterms:'''+doctime+''' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/" xsi:type="dcterms:W3CDTF">'''+currenttime+'''</dcterms:'''+doctime+'''>'''))
+	coreprops_tree.append([['dcterms:'+doctime, {'xsi:type':'dcterms:W3CDTF'}, currenttime]])
         pass
 
+    coreprops = make_element_tree(coreprops_tree)
+    
     self._coreprops = coreprops
     return coreprops
 
@@ -1409,44 +1411,38 @@ class DocxComposer:
        Create app-specific properties. See docproperties() for more common document properties.
        This function copied from 'python-docx' library
     '''
-    appprops = self.makeelement('ep:Properties')
-    appprops = etree.fromstring(
-    '''<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"></Properties>''')
-    props = {
-            'Template':'Normal.dotm',
-            'TotalTime':'6',
-            'Pages':'1',  
-            'Words':'83',   
-            'Characters':'475', 
-            'Application':'Microsoft Word 12.0.0',
-            'DocSecurity':'0',
-            'Lines':'12', 
-            'Paragraphs':'8',
-            'ScaleCrop':'false', 
-            'LinksUpToDate':'false', 
-            'CharactersWithSpaces':'583',  
-            'SharedDoc':'false',
-            'HyperlinksChanged':'false',
-            'AppVersion':'12.0000',    
-            'Company':self.company,    
-            }
-    for prop in props:
-        appprops.append(self.makeelement(prop,tagtext=props[prop]))
+    appprops_tree = [['ep:Properties'],
+		    [['ep:Template','Normal.dotm']],
+		    [['ep:TotalTime','6']],
+		    [['ep:Pages','1']],
+		    [['ep:Words','83']],
+		    [['ep:Characters','475']],
+		    [['ep:Application','Microsoft Word 12.0.0']],
+		    [['ep:DocSecurity','0']],
+		    [['ep:Lines','12']],
+		    [['ep:Paragraphs','8']],
+		    [['ep:ScaleCrop','false']],
+		    [['ep:LinksUpToDate','false']],
+		    [['ep:CharactersWithSpaces','583']],
+		    [['ep:SharedDoc','false']],
+		    [['ep:HyperlinksChanged','false']],
+		    [['ep:AppVersion','12.0000']],
+		    [['ep:Company',self.company]]
+		    ]
 
+    appprops=make_element_tree(appprops_tree)
     self._appprops = appprops
     return appprops
-
 
   def websettings(self):
     '''
       Generate websettings
       This function copied from 'python-docx' library
     '''
-    web = self.makeelement('w:webSettings')
-    web.append(self.makeelement('w:allowPNG'))
-    web.append(self.makeelement('w:doNotSaveAsSingleFile'))
-
+    web_tree = [ ['w:webSettings'], [['w:allowPNG']], [['w:doNotSaveAsSingleFile']] ]
+    web = make_element_tree(web_tree)
     self._websettings = web
+
     return web
 
   def relationshiplist(self):
@@ -1473,20 +1469,14 @@ class DocxComposer:
       This function copied from 'python-docx' library
     '''
     # Default list of relationships
-    # FIXME: using string hack instead of making element
-    #relationships = self.makeelement('pr:Relationships',nsprefix='pr')    
-
-    relationships = etree.fromstring(
-    '''<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-        </Relationships>'''    
-    )
+    rel_tree=[['pr:Relationships']]
     count = 0
     for relationship in self.relationships:
         # Relationship IDs (rId) start at 1.
-        relationships.append(self.makeelement('Relationship',attributes={'Id':'rId'+str(count+1),
-        'Type':relationship[0],'Target':relationship[1]}))
+	rel_tree.append([['pr:Relationship',{'Id':'rId'+str(count+1), 'Type':relationship[0],'Target':relationship[1]}]])
         count += 1
 
+    relationships = make_element_tree(rel_tree)
     self._wordrelationships = relationships
     return relationships    
 

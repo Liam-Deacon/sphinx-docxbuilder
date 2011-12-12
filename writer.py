@@ -343,7 +343,7 @@ class DocxTranslator(nodes.NodeVisitor):
         self.new_state()
         self.sectionlevel = 0
 
-        self.docx.pagebreak(type='page', orient='portrait')
+#        self.docx.pagebreak(type='page', orient='portrait')
 
     def depart_start_of_file(self, node):
         '''
@@ -437,6 +437,7 @@ class DocxTranslator(nodes.NodeVisitor):
            self.ensure_state()
            maxdepth = get_toc_maxdepth(self.builder, 'index')
            self.docx.table_of_contents(toc_text=None, maxlevel=maxdepth )
+           self.docx.pagebreak(type='page', orient='portrait')
         dprint()
         pass
 
