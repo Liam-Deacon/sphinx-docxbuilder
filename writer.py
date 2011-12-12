@@ -229,8 +229,8 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
         result=False
 
-	if 'Admonition' in self.current_block :
-          return result
+#	if 'Admonition' in self.current_block :
+#          return result
           
 	if _sty is 'List_item' :
           self.flush_enum_list_item()
@@ -1230,20 +1230,24 @@ class DocxTranslator(nodes.NodeVisitor):
         def visit_admonition(self, node):
             dprint()
             self.flush_state()
-	    self.current_block.append('Admonition')
+#	    self.current_block.append('Admonition')
 
             atitle = admonitionlabels[name.lower()] + ': '
 	    self.admonition_body = self.docx.insert_admonition_table('', title=atitle,tstyle=name+'Admonition')
+	    self.docx.set_docbody(self.admonition_body)
         return visit_admonition
 
     def _make_depart_admonition(name):
         def depart_admonition(self, node):
             dprint()
-	    self.current_block.remove('Admonition')
-            paragraphs = self.flush_state_all(_create_only=True)
-            for p in paragraphs :
-                self.admonition_body.append(p)
-            self.admonition_body = None
+#	    self.current_block.remove('Admonition')
+#            paragraphs = self.flush_state_all(_create_only=True)
+#            for p in paragraphs :
+#                self.admonition_body.append(p)
+#            self.admonition_body = None
+
+            self.flush_state()
+	    self.docx.set_docbody()
         return depart_admonition
 
     visit_attention = _visit_admonition('Attention')

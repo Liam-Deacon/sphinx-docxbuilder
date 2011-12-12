@@ -580,6 +580,7 @@ class DocxComposer:
     self.set_style_file(stylefile)
     self.document = make_element_tree([['w:document'],[['w:body']]])
     self.docbody = get_elements(self.document, '/w:document/w:body')[0]
+    self.current_docbody = self.docbody
 
     self.relationships = self.relationshiplist()
 
@@ -635,11 +636,21 @@ class DocxComposer:
     return
     
  ##################
+  def set_docbody(self, body=None):
+    '''
+      Set docx body..
+    '''
+    if body is None:
+      self.current_docbody = self.docbody
+    else:
+      self.current_docbody = body
+    return self.current_docbody
+
   def append(self, para):
     '''
       Append paragraph to document
     '''
-    self.docbody.append(para)
+    self.current_docbody.append(para)
     self.last_paragraph = para
     return para
 
@@ -684,7 +695,7 @@ class DocxComposer:
     toc_tree.append(sdtContent_tree)
     sdt = make_element_tree(toc_tree)
 
-    self.docbody.append(sdt)
+    self.append(sdt)
 
 #################
 ####       Output PageBreak
@@ -717,7 +728,9 @@ class DocxComposer:
     pagebreak_tree.append(run_tree)
 
     pagebreak = make_element_tree(pagebreak_tree)
-    self.docbody.append(pagebreak)
+
+    self.append(pagebreak)
+
     self.breakbrefore = True
     return pagebreak    
 
@@ -771,7 +784,7 @@ class DocxComposer:
 
     #  if the 'create_only' flag is True, append paragraph to the document
     if not create_only :
-        self.docbody.append(paragraph)
+        self.append(paragraph)
         self.last_paragraph = paragraph
 
     return paragraph
@@ -903,7 +916,7 @@ class DocxComposer:
     self.make_runs(paragraph, headingtext)
 
     self.last_paragraph = paragraph
-    self.docbody.append(paragraph)
+    self.append(paragraph)
 
     return paragraph   
 
@@ -921,7 +934,7 @@ class DocxComposer:
     self.make_runs(paragraph, itemtext)
 
     self.last_paragraph = paragraph
-    self.docbody.append(paragraph)
+    self.append(paragraph)
 
     return paragraph   
 
@@ -1187,7 +1200,7 @@ class DocxComposer:
        
     '''
     table = self.create_table(self.sizeof_field_list,tstyle='FieldList')
-    self.docbody.append(table)
+    self.append(table)
     return table
 
   def insert_option_list_item(self, table, contents):
@@ -1210,7 +1223,7 @@ class DocxComposer:
        
     '''
     table = self.create_table([self.max_table_width -500],tstyle='OptionList')
-    self.docbody.append(table)
+    self.append(table)
     return table
 
   def insert_admonition_table(self, contents, title='Note: ', tstyle='NoteAdmonition'):
@@ -1223,7 +1236,8 @@ class DocxComposer:
       table.append(row)
     
     self.append_paragrap_to_table_cell(table, self.paragraph(title, create_only=True) , [0,0])
-    self.docbody.append(table)
+
+    self.append(table)
 
     return self.get_table_cell(table, [0,1])
 
@@ -1250,7 +1264,7 @@ class DocxComposer:
       row = self.create_table_row(columns, colsize, x)
       table.append(row)            
 
-    self.docbody.append(table)
+    self.append(table)
     return table                 
 
   def picture(self, picname, picdescription, pixelwidth=None,
@@ -1330,7 +1344,7 @@ class DocxComposer:
 
     paragraph = make_element_tree(paragraph_tree)
     self.relationships = relationshiplist
-    self.docbody.append(paragraph)
+    self.append(paragraph)
 
     self.last_paragraph = None
     return paragraph
