@@ -1078,7 +1078,7 @@ class DocxComposer:
     typ =  get_enumerate_type(typ)
 
     num_tree = [['w:num', {'w:numId':str(newid)}],
-                   [['w:abstrctNumId', {'w:val':orig_numid}] ],
+                   [['w:abstractNumId', {'w:val':orig_numid}] ],
                    [['w:lvlOverride', {'w:ilvl':'0'}],
                        [['w:startOverride', {'w:val':str(start_val)}]] ,
                        [['w:lvl', {'w:ilvl':'0'}], [['w:lvlText', {'w:val': lvl_txt} ]],
