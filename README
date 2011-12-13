@@ -40,6 +40,9 @@ This program is consist of following files.
 * contrib/quickstart.py
   This is for 'sphinx-quickstart' command to add some definitions for 'sphinx-docxbuilder'.
   Please replace the original one.
+
+* contrib/exportDocx.py contrib/restructDocx.py
+  These are sample command to export/restruct docx file.
    
 Requirements
 =============

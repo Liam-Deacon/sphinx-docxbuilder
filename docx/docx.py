@@ -161,13 +161,34 @@ def parse_tag_list(tag):
 
   return tagname,attributes,tagtext
 
-def make_element_tree(arg):
+def extract_nsmap(tag, attributes):
+    '''
+    '''
+    result = {}
+    ns_name = tag.split(':', 1)
+    if len(ns_name) > 1 and nsprefixes.get(ns_name[0]) :
+        result[ns_name[0]] = nsprefixes[ns_name[0]]
+
+    for x in attributes:
+      ns_name = x.split(':', 1)
+      if len(ns_name) > 1 and nsprefixes.get(ns_name[0]) :
+          result[ns_name[0]] = nsprefixes[ns_name[0]]
+
+    return result
+
+def make_element_tree(arg, _xmlns=None):
     '''
        
     '''
     tagname,attributes,tagtext = parse_tag_list(arg[0])
     children = arg[1:]
-    newele = etree.Element(norm_name(tagname), nsmap=nsprefixes)
+
+    nsmap = extract_nsmap(tagname, attributes)
+
+    if _xmlns is None :
+      newele = etree.Element(norm_name(tagname), nsmap=nsmap)
+    else :
+      newele = etree.Element(norm_name(tagname), xmlns=_xmlns, nsmap=nsmap)
 
     if tagtext :
       newele.text = tagtext
@@ -237,8 +258,9 @@ class DocxDocument:
     self.keywords = []
     self.stylenames = {}
 
-    self.set_document(docxfile)
-    self.docxfile = docxfile
+    if docxfile :
+      self.set_document(docxfile)
+      self.docxfile = docxfile
 
   def set_document(self, fname):
     '''
@@ -322,7 +344,7 @@ class DocxDocument:
     return
 
 
-  def extract_files(self,to_dir):
+  def extract_files(self,to_dir, pprint=False):
     '''
       Extract all files from docx 
     '''
@@ -333,6 +355,10 @@ class DocxDocument:
       filelist = self.docx.namelist()
       for fname in filelist :
         xmlcontent = self.docx.read(fname)
+	fname_ext = os.path.splitext(fname)[1]
+	if pprint and (fname_ext == '.xml'  or fname_ext == '.rels') :
+          document = etree.fromstring(xmlcontent)
+          xmlcontent = etree.tostring(document, encoding='UTF-8', pretty_print=True)
         file_name = join(to_dir,fname)
         if not os.path.exists(os.path.dirname(file_name)) :
           os.makedirs(os.path.dirname(file_name)) 
@@ -1376,15 +1402,15 @@ class DocxComposer:
                  'gif':'image/gif',
                  'png':'image/png'}
 
-    types_tree = [['ct:Types']]
+    types_tree = [['Types']]
 
     for part in parts:
-      types_tree.append([['ct:Override',{'PartName':part,'ContentType':parts[part]}]])
+      types_tree.append([['Override',{'PartName':part,'ContentType':parts[part]}]])
 
     for extension in filetypes:
-      types_tree.append([['ct:Default',{'Extension':extension,'ContentType':filetypes[extension]}]])
+      types_tree.append([['Default',{'Extension':extension,'ContentType':filetypes[extension]}]])
 
-    types = make_element_tree(types_tree)
+    types = make_element_tree(types_tree, nsprefixes['ct'])
     os.chdir(prev_dir)
     self._contenttypes = types
     return types
@@ -1425,26 +1451,26 @@ class DocxComposer:
        Create app-specific properties. See docproperties() for more common document properties.
        This function copied from 'python-docx' library
     '''
-    appprops_tree = [['ep:Properties'],
-		    [['ep:Template','Normal.dotm']],
-		    [['ep:TotalTime','6']],
-		    [['ep:Pages','1']],
-		    [['ep:Words','83']],
-		    [['ep:Characters','475']],
-		    [['ep:Application','Microsoft Word 12.0.0']],
-		    [['ep:DocSecurity','0']],
-		    [['ep:Lines','12']],
-		    [['ep:Paragraphs','8']],
-		    [['ep:ScaleCrop','false']],
-		    [['ep:LinksUpToDate','false']],
-		    [['ep:CharactersWithSpaces','583']],
-		    [['ep:SharedDoc','false']],
-		    [['ep:HyperlinksChanged','false']],
-		    [['ep:AppVersion','12.0000']],
-		    [['ep:Company',self.company]]
+    appprops_tree = [['Properties'],
+		    [['Template','Normal.dotm']],
+		    [['TotalTime','6']],
+		    [['Pages','1']],
+		    [['Words','83']],
+		    [['Characters','475']],
+		    [['Application','Microsoft Word 12.0.0']],
+		    [['DocSecurity','0']],
+		    [['Lines','12']],
+		    [['Paragraphs','8']],
+		    [['ScaleCrop','false']],
+		    [['LinksUpToDate','false']],
+		    [['CharactersWithSpaces','583']],
+		    [['SharedDoc','false']],
+		    [['HyperlinksChanged','false']],
+		    [['AppVersion','12.0000']],
+		    [['Company',self.company]]
 		    ]
 
-    appprops=make_element_tree(appprops_tree)
+    appprops=make_element_tree(appprops_tree, nsprefixes['ep'])
     self._appprops = appprops
     return appprops
 
@@ -1483,14 +1509,14 @@ class DocxComposer:
       This function copied from 'python-docx' library
     '''
     # Default list of relationships
-    rel_tree=[['pr:Relationships']]
+    rel_tree=[['Relationships']]
     count = 0
     for relationship in self.relationships:
         # Relationship IDs (rId) start at 1.
-	rel_tree.append([['pr:Relationship',{'Id':'rId'+str(count+1), 'Type':relationship[0],'Target':relationship[1]}]])
+	rel_tree.append([['Relationship',{'Id':'rId'+str(count+1), 'Type':relationship[0],'Target':relationship[1]}]])
         count += 1
 
-    relationships = make_element_tree(rel_tree)
+    relationships = make_element_tree(rel_tree, nsprefixes['pr'])
     self._wordrelationships = relationships
     return relationships    
 
