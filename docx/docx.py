@@ -872,7 +872,7 @@ class DocxComposer:
 
     run_tree = [['w:r']]
     if txt == ":br" :
-      run_tree.append([['w:cr']])
+      run_tree.append([['w:br']])
     else:
       attr ={}
       if txt.find(' ') != -1 :
@@ -1363,8 +1363,7 @@ class DocxComposer:
 
     paragraph_tree = [['w:p'],
                          [['w:pPr'], [['w:jc', {'w:val':align}]]],
-			 [['w:r'], [['w:rPr'], [['w:noProof']]]],
-			 [['w:drawing'], inline_tree]
+			 [['w:r'], [['w:rPr'], [['w:noProof']]], [['w:drawing'], inline_tree] ]
 			 ]
 
 
