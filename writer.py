@@ -756,7 +756,7 @@ class DocxTranslator(nodes.NodeVisitor):
     def depart_option_list_item(self, node):
         dprint()
 #	self.states[-1].insert(0,'    ')
-        self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states))
+        self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states), 0)
 #	self.flush_state()
 	self.states=[[]]
         #raise nodes.SkipNode
@@ -771,7 +771,7 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
 	if self.states[-1][-1] == ', ' :
 	  self.states[-1].pop()
-        self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states))
+        self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states), 1)
 	self.states=[[]]
         #raise nodes.SkipNode
         #self.add_text('     ')

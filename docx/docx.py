@@ -828,7 +828,8 @@ class DocxComposer:
     # calcurate indent
     ind = 0
     if block_level > 0 :
-        ind = self.number_list_indent * block_level
+        ind = 480 * block_level
+        #ind = self.number_list_indent * block_level
 
     # set paragraph tree
     paragraph_tree = [['w:p'], 
@@ -1034,13 +1035,15 @@ class DocxComposer:
     '''
     result = 0
 
-    if style == 'ListBullet' or nId == 0 :
-      if len(self.bullet_list_indents) > lvl :
-        result = self.bullet_list_indents[lvl]
-      else:
-        result = self.bullet_list_indents[-1]
-    else:
-      result = self.number_list_indent * (lvl+1)
+    result = 480 * (lvl+1)
+
+#    if style == 'ListBullet' or nId == 0 :
+#      if len(self.bullet_list_indents) > lvl :
+#        result = self.bullet_list_indents[lvl]
+#      else:
+#        result = self.bullet_list_indents[-1]
+#    else:
+#      result = self.number_list_indent * (lvl+1)
 
     return result
      
@@ -1160,7 +1163,7 @@ class DocxComposer:
       create new List Number style 
     '''
     newid = nId
-    abstnewid = int(nId) -1
+    abstnewid = int(nId)
 
     cmaxid = self.get_max_numbering_id()
 
@@ -1180,7 +1183,7 @@ class DocxComposer:
 			      [['w:lvlText', {'w:val': lvl_txt} ]],
                               [['w:lvlJc', {'w:val': 'left'} ]],
                               [['w:numFmt', {'w:val': typ} ]],
-			      [['w:pPr'], [['w:ind',{'left':'480', 'w:hanging':'480'} ]]]
+			      [['w:pPr'], [['w:ind',{'w:left':'480', 'w:hanging':'480'} ]]]
 		       ]
                     ]
 
@@ -1259,14 +1262,33 @@ class DocxComposer:
       cell.append(paragraph)
     return cell
 
-  def create_table_row(self, n_cells, cellsize=None, contents=None):
+  def create_table_row(self, n_cells, cellsize=None, contents=None, nline=0,firstCol=0):
     '''
       Create table row
     '''
-    row = make_element_tree([['w:tr']])
+    if nline < 0 :
+      trPr_val = '100000000000'
+    elif nline % 2  == 0 :
+      trPr_val = '000000100000'
+    else :
+      trPr_val = '000000010000'
+
+    tr_tree = [['w:tr'], [['w:trPr'], [['w:cnfStyle', {'w:val':trPr_val}]] ] ]
+
+    row = make_element_tree(tr_tree)
 
     for i in range(n_cells):   
-      cell = make_element_tree([['w:tc'], ['w:tcPr'] ])
+      i - firstCol
+      if i < 0 :
+        tcPr_val = '001000000000'
+      elif i % 2  == 0 :
+        tcPr_val = '000010000000'
+      else :
+        tcPr_val = '000001000000'
+
+      tc_tree = [['w:tc'], [['w:tcPr'], [['w:cnfStyle', {'w:val':tcPr_val}]] ] ]
+      cell = make_element_tree(tc_tree)
+      #cell = make_element_tree([['w:tc'], ['w:tcPr'] ])
       row.append(cell)
 
       # Properties
@@ -1326,7 +1348,7 @@ class DocxComposer:
     '''
        
     '''
-    row = self.create_table_row(2, self.sizeof_field_list)
+    row = self.create_table_row(2, self.sizeof_field_list,firstCol=1)
     table.append(row)
     self.set_field_list_item(table, contents, n)
 
@@ -1338,18 +1360,24 @@ class DocxComposer:
     self.append(table)
     return table
 
-  def insert_option_list_item(self, table, contents):
+  def insert_option_list_item(self, table, contents, nrow=0):
     '''
        
     '''
-    row = self.create_table_row(1, [self.max_table_width - 500] )
+    row = self.create_table_row(1, [self.max_table_width - 500], nline=nrow )
     table.append(row)
     cell = get_elements(row, 'w:tc')[0]
     if isinstance(contents, str) :
-      cell.append(self.paragraph(contents, create_only=True))
+      paragraph = self.paragraph(contents, create_only=True)
+      if nrow == 0:
+        self.set_indent(paragraph, 480)
+      cell.append(paragraph0r)
     elif isinstance(contents, list) :
       for x in contents: 
-        cell.append(self.paragraph(x, create_only=True))
+        paragraph = self.paragraph(x, create_only=True)
+        if nrow == 0:
+          self.set_indent(paragraph, 480)
+        cell.append(paragraph)
     else :
       print "Invalid parameter:", contents
 
@@ -1367,7 +1395,7 @@ class DocxComposer:
     '''
     table = self.create_table([self.max_table_width], tstyle=tstyle)
     for i in range(2) :
-      row = self.create_table_row(1)
+      row = self.create_table_row(1, nline=i-1)
       table.append(row)
     
     self.append_paragrap_to_table_cell(table, self.paragraph(title, create_only=True) , [0,0])
@@ -1395,8 +1423,9 @@ class DocxComposer:
     colsize[-1] += self.max_table_width - sizeof_table
 
     table = self.create_table(colsize, tstyle=tstyle)
-    for x in contents :
-      row = self.create_table_row(columns, colsize, x)
+
+    for i,x in enumerate(contents) :
+      row = self.create_table_row(columns, colsize, x, i-1)
       table.append(row)            
 
     self.append(table)
