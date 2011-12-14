@@ -468,6 +468,30 @@ class DocxDocument:
         result.append( nid )
     return result
 
+  def get_numbering_ids2(self):
+    '''
+       
+    '''
+    num_elems = get_elements(self.numbering, '/w:numbering/w:num')
+    result = []
+    for num_elem in num_elems :
+        nid = num_elem.attrib[norm_name('w:numId')]
+	elem = get_elements(num_elem, 'w:abstractNumId')[0]
+	abstId = elem.attrib[norm_name('w:val')]
+        result.append( [nid, abstId] )
+    return result
+
+  def get_abstractNum_ids(self):
+    '''
+       
+    '''
+    num_elems = get_elements(self.numbering, '/w:numbering/w:abstractNum')
+    result = []
+    for num_elem in num_elems :
+        nid = num_elem.attrib[norm_name('w:abstractNumId')]
+        result.append( nid )
+    return result
+
   def get_max_numbering_id(self):
     '''
        
@@ -557,6 +581,8 @@ class DocxComposer:
     self.max_table_width = 8000
     self.sizeof_field_list = [2000,5500]
 
+    self.abstractNums = []
+    self.numids = []
 
     if stylefile == None :
       self.template_dir = None
@@ -590,8 +616,31 @@ class DocxComposer:
     self.bullet_list_numId = self.styleDocx.get_numbering_style_id('ListBullet')
     self.number_list_indent = self.get_numbering_left('ListNumber')[0]
     self.number_list_numId = self.styleDocx.get_numbering_style_id('ListNumber')
+    self.abstractNums = get_elements(self.styleDocx.numbering, 'w:abstractNum')
+    self.numids = get_elements(self.styleDocx.numbering, 'w:num')
+    self.numbering = make_element_tree(['w:numbering'])
 
     return
+
+  def get_numbering_ids(self):
+    '''
+       
+    '''
+    result = []
+    for num_elem in self.numids :
+        nid = num_elem.attrib[norm_name('w:numId')]
+        result.append( nid )
+    return result
+
+  def get_max_numbering_id(self):
+    '''
+       
+    '''
+    max_id = 0
+    num_ids = self.get_numbering_ids()
+    for x in num_ids :
+      if int(x) > max_id :  max_id = int(x)
+    return max_id
 
   def delete_template(self):
     '''
@@ -637,14 +686,20 @@ class DocxComposer:
 
     self.wordrelationships()
 
+    for x in self.abstractNums :
+      self.numbering.append(x)
+    for x in self.numids :
+      self.numbering.append(x)
+
     self.docbody.append(self.paper_info)
+
 
     # Serialize our trees into out zip file
     treesandfiles = {self.document:'word/document.xml',
                      self._coreprops:'docProps/core.xml',
                      self._appprops:'docProps/app.xml',
                      self._contenttypes:'[Content_Types].xml',
-                     self.styleDocx.numbering:'word/numbering.xml',
+                     self.numbering:'word/numbering.xml',
                      self.styleDocx.styles:'word/styles.xml',
                      self._websettings:'word/webSettings.xml',
                      self._wordrelationships:'word/_rels/document.xml.rels'}
@@ -1036,10 +1091,10 @@ class DocxComposer:
         num_id = self.styleDocx.get_numbering_style_id(style)
     else :
       num_id = str(nId)
-      if num_id not in self.styleDocx.get_numbering_ids() :
+      if num_id not in self.get_numbering_ids() :
 
 	if enum_prefix : lvl_text=enum_prefix
-        newid = self.styleDocx.get_max_numbering_id()+1
+        newid = self.get_max_numbering_id()+1
 	if newid < nId : newid = nId
         num_id = str(self.new_ListNumber_style(newid, start, lvl_text, enum_type))
 
@@ -1053,11 +1108,11 @@ class DocxComposer:
 
     return pPr
 
-  def get_max_numbering_id(self):
-    '''
-       
-    '''
-    return self.styleDocx.get_max_numbering_id()
+#  def get_max_numbering_id(self):
+#    '''
+#       
+#    '''
+#    return self.styleDocx.get_max_numbering_id()
 
   def get_ListNumber_style(self, nId):
     '''
@@ -1069,7 +1124,7 @@ class DocxComposer:
         return x
     return None
 
-  def new_ListNumber_style(self, nId, start_val=1, lvl_txt='%1.', typ=None):
+  def new_ListNumber_style_org(self, nId, start_val=1, lvl_txt='%1.', typ=None):
     '''
       create new List Number style 
     '''
@@ -1089,6 +1144,60 @@ class DocxComposer:
 
     num = make_element_tree(num_tree)
     self.styleDocx.numbering.append(num)
+    return  newid
+
+  def create_dummy_nums(self, val):
+    orig_numid = self.number_list_numId
+    num_tree = [['w:num', {'w:numId':str(val)}],
+                   [['w:abstractNumId', {'w:val': orig_numid}] ],
+	  ]
+    num = make_element_tree(num_tree)
+    self.numids.append(num)
+    return
+
+  def new_ListNumber_style(self, nId, start_val=1, lvl_txt='%1.', typ=None):
+    '''
+      create new List Number style 
+    '''
+    newid = nId
+    abstnewid = int(nId) -1
+
+    cmaxid = self.get_max_numbering_id()
+
+    if newid > cmaxid + 1 :
+      for x in range(newid - cmaxid-1) :
+        self.create_dummy_nums(cmaxid + x + 1)
+
+
+
+    typ =  get_enumerate_type(typ)
+
+    abstnum_tree = [['w:abstractNum', {'w:abstractNumId':str(abstnewid)}],
+                       [['w:multiLevelType', {'w:val':'singleLevel'}] ],
+#                       [['w:templ', {'w:val':'84BA4CB2'}] ],
+                       [['w:lvl', {'w:ilvl':'0'}],
+                              [['w:start', {'w:val':str(start_val)}]] ,
+			      [['w:lvlText', {'w:val': lvl_txt} ]],
+                              [['w:lvlJc', {'w:val': 'left'} ]],
+                              [['w:numFmt', {'w:val': typ} ]],
+			      [['w:pPr'], [['w:ind',{'left':'480', 'w:hanging':'480'} ]]]
+		       ]
+                    ]
+
+    num_tree = [['w:num', {'w:numId':str(newid)}],
+                   [['w:abstractNumId', {'w:val':str(abstnewid)}] ],
+#                   [['w:lvlOverride', {'w:ilvl':'0'}],
+#                       [['w:startOverride', {'w:val':str(start_val)}]] ,
+#                       [['w:lvl', {'w:ilvl':'0'}], [['w:lvlText', {'w:val': lvl_txt} ]],
+#                                                   [['w:numFmt', {'w:val': typ} ]]
+#                       ]
+#		  ]
+               ]
+
+    abstnum = make_element_tree(abstnum_tree)
+    num = make_element_tree(num_tree)
+    self.abstractNums.append(abstnum)
+    self.numids.append(num)
     return  newid
 
 ########## 
