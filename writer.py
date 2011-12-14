@@ -229,9 +229,6 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
         result=False
 
-#	if 'Admonition' in self.current_block :
-#          return result
-          
 	if _sty is 'List_item' :
           self.flush_enum_list_item()
         else:
@@ -356,7 +353,6 @@ class DocxTranslator(nodes.NodeVisitor):
         '''
 	   start of a document
         '''
-        #print self.builder.env.tocs['index']
         dprint()
         self.toc_out=False
         self.new_state()
@@ -467,9 +463,6 @@ class DocxTranslator(nodes.NodeVisitor):
 	  start of a title
         '''
         dprint()
-        #if isinstance(node.parent, nodes.Admonition):
-        #    self.add_text(node.astext()+': ')
-        #    raise nodes.SkipNode
         self.new_state()
 
     def depart_title(self, node):
@@ -750,22 +743,14 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_option_list_item(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #self.new_state()
 
     def depart_option_list_item(self, node):
         dprint()
-#	self.states[-1].insert(0,'    ')
         self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states), 0)
-#	self.flush_state()
 	self.states=[[]]
-        #raise nodes.SkipNode
-        #self.end_state()
 
     def visit_option_group(self, node):
         dprint()
-        #raise nodes.SkipNode
-        #self._firstoption = True
 
     def depart_option_group(self, node):
         dprint()
@@ -773,8 +758,6 @@ class DocxTranslator(nodes.NodeVisitor):
 	  self.states[-1].pop()
         self.docx.insert_option_list_item(self.current_option_list, get_items_list(self.states), 1)
 	self.states=[[]]
-        #raise nodes.SkipNode
-        #self.add_text('     ')
 
     def visit_option(self, node):
         dprint()
@@ -1230,7 +1213,6 @@ class DocxTranslator(nodes.NodeVisitor):
         def visit_admonition(self, node):
             dprint()
             self.flush_state()
-#	    self.current_block.append('Admonition')
 
             atitle = admonitionlabels[name.lower()] + ': '
 	    self.admonition_body = self.docx.insert_admonition_table('', title=atitle,tstyle=name+'Admonition')
@@ -1240,12 +1222,6 @@ class DocxTranslator(nodes.NodeVisitor):
     def _make_depart_admonition(name):
         def depart_admonition(self, node):
             dprint()
-#	    self.current_block.remove('Admonition')
-#            paragraphs = self.flush_state_all(_create_only=True)
-#            for p in paragraphs :
-#                self.admonition_body.append(p)
-#            self.admonition_body = None
-
             self.flush_state()
 	    self.docx.set_docbody()
         return depart_admonition
@@ -1395,23 +1371,17 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_emphasis(self, node):
         dprint()
-        #print node.astext()
-        #self.add_text('*')
 
     def depart_emphasis(self, node):
         dprint()
         self.append_style('Emphasis')
-        #self.add_text('*')
 
     def visit_literal_emphasis(self, node):
         dprint()
-        #print "literal_emphasis"
-        #self.add_text('*')
 
     def depart_literal_emphasis(self, node):
         dprint()
         self.append_style('LiteralEmphasise')
-        #self.add_text('*')
 
     def visit_strong(self, node):
         dprint()
@@ -1422,13 +1392,10 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_abbreviation(self, node):
         dprint()
-        #self.add_text('')
 
     def depart_abbreviation(self, node):
         dprint()
         self.append_style('Abbreviation')
-        #if node.hasattr('explanation'):
-        #    self.add_text(' (%s)' % node['explanation'])
 
     def visit_title_reference(self, node):
         dprint()

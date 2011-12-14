@@ -828,8 +828,7 @@ class DocxComposer:
     # calcurate indent
     ind = 0
     if block_level > 0 :
-        ind = 480 * block_level
-        #ind = self.number_list_indent * block_level
+        ind = self.number_list_indent * block_level
 
     # set paragraph tree
     paragraph_tree = [['w:p'], 
@@ -1035,15 +1034,13 @@ class DocxComposer:
     '''
     result = 0
 
-    result = 480 * (lvl+1)
-
-#    if style == 'ListBullet' or nId == 0 :
-#      if len(self.bullet_list_indents) > lvl :
-#        result = self.bullet_list_indents[lvl]
-#      else:
-#        result = self.bullet_list_indents[-1]
-#    else:
-#      result = self.number_list_indent * (lvl+1)
+    if style == 'ListBullet' or nId == 0 :
+      if len(self.bullet_list_indents) > lvl :
+        result = self.bullet_list_indents[lvl]
+      else:
+        result = self.bullet_list_indents[-1]
+    else:
+      result = self.number_list_indent * (lvl+1)
 
     return result
      
@@ -1111,12 +1108,6 @@ class DocxComposer:
 
     return pPr
 
-#  def get_max_numbering_id(self):
-#    '''
-#       
-#    '''
-#    return self.styleDocx.get_max_numbering_id()
-
   def get_ListNumber_style(self, nId):
     '''
        
@@ -1171,30 +1162,22 @@ class DocxComposer:
       for x in range(newid - cmaxid-1) :
         self.create_dummy_nums(cmaxid + x + 1)
 
-
-
     typ =  get_enumerate_type(typ)
 
+    ind = self.number_list_indent
     abstnum_tree = [['w:abstractNum', {'w:abstractNumId':str(abstnewid)}],
                        [['w:multiLevelType', {'w:val':'singleLevel'}] ],
-#                       [['w:templ', {'w:val':'84BA4CB2'}] ],
                        [['w:lvl', {'w:ilvl':'0'}],
                               [['w:start', {'w:val':str(start_val)}]] ,
 			      [['w:lvlText', {'w:val': lvl_txt} ]],
                               [['w:lvlJc', {'w:val': 'left'} ]],
                               [['w:numFmt', {'w:val': typ} ]],
-			      [['w:pPr'], [['w:ind',{'w:left':'480', 'w:hanging':'480'} ]]]
+			      [['w:pPr'], [['w:ind',{'w:left':str(ind), 'w:hanging':str(ind)} ]]]
 		       ]
                     ]
 
     num_tree = [['w:num', {'w:numId':str(newid)}],
                    [['w:abstractNumId', {'w:val':str(abstnewid)}] ],
-#                   [['w:lvlOverride', {'w:ilvl':'0'}],
-#                       [['w:startOverride', {'w:val':str(start_val)}]] ,
-#                       [['w:lvl', {'w:ilvl':'0'}], [['w:lvlText', {'w:val': lvl_txt} ]],
-#                                                   [['w:numFmt', {'w:val': typ} ]]
-#                       ]
-#		  ]
                ]
 
     abstnum = make_element_tree(abstnum_tree)
@@ -1288,7 +1271,6 @@ class DocxComposer:
 
       tc_tree = [['w:tc'], [['w:tcPr'], [['w:cnfStyle', {'w:val':tcPr_val}]] ] ]
       cell = make_element_tree(tc_tree)
-      #cell = make_element_tree([['w:tc'], ['w:tcPr'] ])
       row.append(cell)
 
       # Properties
@@ -1370,13 +1352,13 @@ class DocxComposer:
     if isinstance(contents, str) :
       paragraph = self.paragraph(contents, create_only=True)
       if nrow == 0:
-        self.set_indent(paragraph, 480)
+        self.set_indent(paragraph, self.number_list_indent)
       cell.append(paragraph0r)
     elif isinstance(contents, list) :
       for x in contents: 
         paragraph = self.paragraph(x, create_only=True)
         if nrow == 0:
-          self.set_indent(paragraph, 480)
+          self.set_indent(paragraph, self.number_list_indent)
         cell.append(paragraph)
     else :
       print "Invalid parameter:", contents
