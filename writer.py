@@ -1102,12 +1102,12 @@ class DocxTranslator(nodes.NodeVisitor):
     def visit_definition_list_item(self, node):
         dprint()
         self.flush_state()
+        pass
 
 
     def depart_definition_list_item(self, node):
         dprint()
         self.flush_state()
-        pass
 
     def visit_term(self, node):
         dprint()
@@ -1116,7 +1116,8 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def depart_term(self, node):
         dprint()
-        self.flush_state('DefinitionTerm')
+        if len(self.current_block) > 0 and self.current_block[-1] != 'List_item' :
+          self.flush_state('DefinitionTerm')
 
     def visit_classifier(self, node):
         dprint()
@@ -1198,16 +1199,16 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
         pass
 
-    def visit_admonition(self, node):
-        dprint()
-        self.flush_state()
-        #raise nodes.SkipNode
-        #self.new_state()
-
-    def depart_admonition(self, node):
-        dprint()
-        #raise nodes.SkipNode
-        #self.end_state()
+#    def visit_admonition(self, node):
+#        dprint()
+#        self.flush_state()
+#        #raise nodes.SkipNode
+#        #self.new_state()
+#
+#    def depart_admonition(self, node):
+#        dprint()
+#        #raise nodes.SkipNode
+#        #self.end_state()
 
     def _visit_admonition(name):
         def visit_admonition(self, node):
@@ -1269,6 +1270,8 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def depart_literal_block(self, node):
         dprint()
+	if self.docx.get_last_paragraph_style() == 'LiteralBlock' :
+          self.docx.insert_linespace()
         self.flush_state(_sty='LiteralBlock')
         self.end_state()
 

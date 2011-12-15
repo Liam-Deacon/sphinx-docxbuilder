@@ -870,6 +870,15 @@ class DocxComposer:
 
     return paragraph
 
+  def insert_linespace(self):
+    self.append(self.make_paragraph())
+
+  def get_last_paragraph_style(self):
+    result = get_attribute(self.last_paragraph,'w:pPr/w:pStyle', 'w:val')
+    if result is None :
+      result = 'BodyText'
+    return result
+
   def insert_paragraph_property(self, paragraph, style='BodyText'):
     '''
        Insert paragraph property element with style.
@@ -1375,7 +1384,7 @@ class DocxComposer:
     '''
        
     '''
-    table = self.create_table([self.max_table_width], tstyle=tstyle)
+    table = self.create_table([self.max_table_width-1000], tstyle=tstyle)
     for i in range(2) :
       row = self.create_table_row(1, nline=i-1)
       table.append(row)
@@ -1383,6 +1392,7 @@ class DocxComposer:
     self.append_paragrap_to_table_cell(table, self.paragraph(title, create_only=True) , [0,0])
 
     self.append(table)
+    self.insert_linespace()
 
     return self.get_table_cell(table, [0,1])
 
