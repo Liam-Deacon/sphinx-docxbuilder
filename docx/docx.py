@@ -749,15 +749,12 @@ class DocxComposer:
     sdtContent_tree = [['w:sdtContent']]
 
     if toc_text :
-      style = 'a8'
-      p_tree = [['w:p'], [['w:pPr'], [['w:pStyle', {'w:val':style}]] ], [['w:r'], [['w:rPr'], [['w:long']] ], [['w:t',toc_text]] ] ]
+      p_tree = [['w:p'], [['w:pPr'], [['w:pStyle', {'w:val':'TOC_Title'}]] ], [['w:r'], [['w:rPr'], [['w:long']] ], [['w:t',toc_text]] ] ]
       sdtContent_tree.append(p_tree)
 
-
-    style = '11'
     p_tree = [['w:p'],
 		    [['w:pPr'],
-			    [['w:pStyle', {'w:val':style}]],
+			    [['w:pStyle', {'w:val':'TOC_Contents'}]],
 			    [['w:tabs'], 
 				    [['w:tab',{'w:val':'right', 'w:leader':'dot','w:pos':'8488'}] ]
 		           ],
@@ -873,6 +870,14 @@ class DocxComposer:
   def insert_linespace(self):
     self.append(self.make_paragraph())
 
+  def get_paragraph_text(self, paragraph=None):
+    if paragraph is None: paragaph = self.last_paragraph
+    txt_elem = get_elements(paragraph, 'w:r/w:t')
+    result = ''
+    for txt in txt_elem :
+       result += txt.text
+    return result
+
   def get_last_paragraph_style(self):
     result = get_attribute(self.last_paragraph,'w:pPr/w:pStyle', 'w:val')
     if result is None :
@@ -890,6 +895,22 @@ class DocxComposer:
     pPr = make_element_tree( [ ['w:pPr'], [['w:pStyle',{'w:val':style}]] ] )
     paragraph.append(pPr) 
     return paragraph
+
+  def get_last_paragraph(self):
+    paras = get_elements(self.current_docbody, 'w:p')
+    if len(paras) > 1:
+      return paras[-1]
+    return None
+
+  def trim_paragraph(self):
+    paras = get_elements(self.current_docbody, 'w:p')
+    if len(para) > 2:
+      self.last_paragraph = paras[-2]
+      self.current_docbody.remove(paras[-1])
+    elif len(para) > 1:
+      self.last_paragraph = None
+      self.current_docbody.remove(paras[-1])
+    return
 
   def get_paragraph_style(self, paragraph, force_create=False):
     '''

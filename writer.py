@@ -26,6 +26,7 @@ import re
 from docutils import nodes, writers
 
 from sphinx import addnodes
+from sphinx import highlighting
 from sphinx.locale import admonitionlabels, versionlabels, _
 
 import docx
@@ -183,6 +184,9 @@ class DocxTranslator(nodes.NodeVisitor):
         self.admonition_body = None
         self.current_field_list = None
         self.current_option_list = None
+	self.literal_block_lang = None
+
+#        self.highlighter = highlighting.PygmentsBridge('text', builder.config.pygments_style, builder.config.trim_doctest_flags)
 
         self.option = []
 
@@ -253,6 +257,9 @@ class DocxTranslator(nodes.NodeVisitor):
         for texts in  self.states:
           if texts :
             if _sty :
+                if _sty == 'LiteralBlock':
+#                    print texts
+                    pass
                 p.append( self.docx.paragraph(texts, style=_sty, block_level=b_level, create_only=_create_only))
             else:
                 p.append( self.docx.paragraph(texts, block_level=b_level, create_only=_create_only))
@@ -428,11 +435,15 @@ class DocxTranslator(nodes.NodeVisitor):
         '''
 	   start of a compound (pass a text)
         '''
+	if self.states[-1][0]  == 'Contents:' :
+	   self.states.pop()
+	   self.states.append(['  '])
+	  
         if not self.toc_out :
            self.toc_out = True
            self.ensure_state()
            maxdepth = get_toc_maxdepth(self.builder, 'index')
-           self.docx.table_of_contents(toc_text=None, maxlevel=maxdepth )
+           self.docx.table_of_contents(toc_text='Contents', maxlevel=maxdepth )
            self.docx.pagebreak(type='page', orient='portrait')
         dprint()
         pass
@@ -1199,17 +1210,6 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
         pass
 
-#    def visit_admonition(self, node):
-#        dprint()
-#        self.flush_state()
-#        #raise nodes.SkipNode
-#        #self.new_state()
-#
-#    def depart_admonition(self, node):
-#        dprint()
-#        #raise nodes.SkipNode
-#        #self.end_state()
-
     def _visit_admonition(name):
         def visit_admonition(self, node):
             dprint()
@@ -1267,11 +1267,16 @@ class DocxTranslator(nodes.NodeVisitor):
         dprint()
         self.flush_state()
         self.new_state()
+	try:
+	  self.literal_block_lang = node['language']
+	except:
+	  self.literal_block_lang = None
 
     def depart_literal_block(self, node):
         dprint()
 	if self.docx.get_last_paragraph_style() == 'LiteralBlock' :
           self.docx.insert_linespace()
+        # We should insert highlighter for docx....
         self.flush_state(_sty='LiteralBlock')
         self.end_state()
 
