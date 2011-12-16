@@ -279,6 +279,7 @@ class DocxDocument:
       self.paragraph_style_id = self.stylenames['Normal']
       self.character_style_id = self.stylenames['Default Paragraph Font']
 
+
     return self.document
 
   def get_xmltree(self, fname):
@@ -321,6 +322,15 @@ class DocxDocument:
     print self.document_width, self.document_height
     return self.paper_info
     
+  def get_coverpage(self):
+    coverInfo=get_attribute(self.docbody, 'w:sdt/w:sdtPr/w:docPartObj/w:docPartGallery', 'w:val')
+    print "Cover:",coverInfo
+    if coverInfo == "Cover Pages":
+      self.coverpage=get_elements(self.docbody,'w:sdt')[0]
+    else:
+      self.coverpage=None
+
+    return self.coverpage
 
   def extract_file(self,fname, outname=None, pprint=True):
     '''
@@ -690,6 +700,10 @@ class DocxComposer:
       self.numbering.append(x)
     for x in self.numids :
       self.numbering.append(x)
+
+    coverpage = self.styleDocx.get_coverpage()
+    if coverpage is not None :
+      self.docbody.insert(0,coverpage)
 
     self.docbody.append(self.paper_info)
 
