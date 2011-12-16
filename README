@@ -30,6 +30,9 @@ This program is consist of following files.
 * writer.py
   This file defined a writer class for Sphinx-1.1.2. This file is modified sphinx-docxbuilder's.
 
+* highlight.py
+  This file defined DocxFormatter and DocxPygmentsBridge to support highlighting in the literal block.
+
 * docx/docx.py
   This file defined two classes to manipulate a docx file.
 
@@ -67,6 +70,7 @@ Currently works followings:
 * Simple table and csv table
 * Images
 * Admonitions
+* High Lighing in Literal Blocks
 * Basic Inline Markups 
 
 Known issue
