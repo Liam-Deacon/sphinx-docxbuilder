@@ -29,6 +29,8 @@ from sphinx import addnodes
 from sphinx import highlighting
 from sphinx.locale import admonitionlabels, versionlabels, _
 
+from sphinx.ext import graphviz
+
 import docx
 import sys
 import os
@@ -36,6 +38,7 @@ import zipfile
 import tempfile
 from lxml import etree
 from highlight import *
+
 
 #
 # Is the PIL imaging library installed?
@@ -377,7 +380,7 @@ class DocxTranslator(nodes.NodeVisitor):
 	   start of a hight light
         '''
         dprint()
-#        raise nodes.SkipNode
+        raise nodes.SkipNode
 
     def visit_section(self, node):
         '''
@@ -908,7 +911,7 @@ class DocxTranslator(nodes.NodeVisitor):
         file_path = os.path.join(self.builder.env.srcdir, uri)
         width, height = self.get_image_scaled_width_height(node, file_path)
 
-        self.docx.picture(file_path, '',width,height)
+        self.docx.picture(file_path, '',width, height)
 
     def depart_image(self, node):
         dprint()
@@ -1524,13 +1527,14 @@ class DocxTranslator(nodes.NodeVisitor):
 
     def visit_graphviz(self, node):
         dprint()
-        raise nodes.SkipNode
-
-    def depart_graphviz(self, node):
-        dprint()
+	fname, filename = graphviz.render_dot(self, node['code'], node['options'],'png')
+        self.flush_state()
+        width, height = self.get_image_scaled_width_height(node, filename)
+        self.docx.picture(filename, '',width, height)
         raise nodes.SkipNode
 
     def unknown_visit(self, node):
         dprint()
+        print node
         raise nodes.SkipNode
         #raise NotImplementedError('Unknown node: ' + node.__class__.__name__)
