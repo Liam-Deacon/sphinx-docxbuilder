@@ -35,6 +35,7 @@ import os
 import zipfile
 import tempfile
 from lxml import etree
+from highlight import *
 
 #
 # Is the PIL imaging library installed?
@@ -186,7 +187,7 @@ class DocxTranslator(nodes.NodeVisitor):
         self.current_option_list = None
 	self.literal_block_lang = None
 
-#        self.highlighter = highlighting.PygmentsBridge('text', builder.config.pygments_style, builder.config.trim_doctest_flags)
+        self.highlighter = DocxPygmentsBridge('html', builder.config.pygments_style, builder.config.trim_doctest_flags)
 
         self.option = []
 
@@ -257,9 +258,9 @@ class DocxTranslator(nodes.NodeVisitor):
         for texts in  self.states:
           if texts :
             if _sty :
-                if _sty == 'LiteralBlock':
+#                if _sty == 'LiteralBlock':
 #                    print texts
-                    pass
+#                    pass
                 p.append( self.docx.paragraph(texts, style=_sty, block_level=b_level, create_only=_create_only))
             else:
                 p.append( self.docx.paragraph(texts, block_level=b_level, create_only=_create_only))
@@ -1270,13 +1271,27 @@ class DocxTranslator(nodes.NodeVisitor):
 	try:
 	  self.literal_block_lang = node['language']
 	except:
-	  self.literal_block_lang = None
+	  self.literal_block_lang = 'guess'
 
     def depart_literal_block(self, node):
         dprint()
 	if self.docx.get_last_paragraph_style() == 'LiteralBlock' :
           self.docx.insert_linespace()
         # We should insert highlighter for docx....
+
+        highlight_args = node.get('highlight_args', {})
+        def warner(msg):
+            self.builder.warn(msg, (self.builder.current_docname, node.line))
+        result = []
+        for  x in self.states:
+          linenos = 1
+          if x :
+            highlighted = self.highlighter.highlight_block(
+                     x[0], self.literal_block_lang, # warn=warner,
+                    linenos=linenos, **highlight_args)
+            result.append([highlighted])
+
+        self.states=result
         self.flush_state(_sty='LiteralBlock')
         self.end_state()
 

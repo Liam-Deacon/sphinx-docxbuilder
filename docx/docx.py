@@ -936,25 +936,34 @@ class DocxComposer:
     '''
       Make new runs with text.
     '''
+    run = []
     if isinstance(targettext, (list)) :
         for i,x in enumerate(targettext) :
             if isinstance(x, (list)) :
-                run = self.make_run(x[0], style=x[1])
+                run.append(self.make_run(x[0], style=x[1]))
             else:
-                run = self.make_run(x)
-            paragraph.append(run) 
+	        if literal_block :
+                  run_list = self.make_run(x,rawXml=True)
+                  run.extend(run_list)
+                else:
+                  run.append(self.make_run(x))
 	    if literal_block and i+1 <  len(targettext) :
-                paragraph.append( self.make_run(':br') )
+                run.append( self.make_run(':br') )
     else:
-        run = self.make_run(targettext)
-        paragraph.append(run)    
+	if literal_block :
+          run.extend(self.make_run(targettext,rawXml=True))
+        else:
+          run.append(self.make_run(targettext))
+
+    for r in run:
+        paragraph.append(r)    
+
     return paragraph
 
-  def make_run(self, txt, style='Normal', create_only=True):
+  def make_run(self, txt, style='Normal', rawXml=None):
     '''
       Make a new styled run from text.
     '''
-
     run_tree = [['w:r']]
     if txt == ":br" :
       run_tree.append([['w:br']])
@@ -972,13 +981,15 @@ class DocxComposer:
 	run_tree.append([['w:rPr'], [['w:rStyle',{'w:val':style}]]])
 
     # Make run element
-    run = make_element_tree(run_tree)
+    if rawXml:
+      xmltxt='<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'+txt+'</w:p>'
+      p = etree.fromstring(xmltxt)
+      run = get_elements(p, 'w:r')
+      ## remove the last run, because it could be '<w:br>'
+      run.pop()
+    else:
+      run = make_element_tree(run_tree)
                 
-    if not create_only :
-      if self.last_paragraph == None:
-        self.paragraph(None)
-      self.last_paragraph.append(run)
-
     return run
 
   def add_br(self):

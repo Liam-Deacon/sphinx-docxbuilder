@@ -90,5 +90,5 @@ class DocxBuilder(Builder):
             self.warn("error writing file %s: %s" % (outfilename, err))
 
     def finish(self):
-        self.warn("call finish")
+        #self.warn("call finish")
         pass
