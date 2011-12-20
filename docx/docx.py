@@ -1484,7 +1484,16 @@ class DocxComposer:
     media_dir = join(self.template_dir,'word','media')
     if not os.path.isdir(media_dir):
         os.mkdir(media_dir)
+#    picpath, picname = os.path.abspath(picname), os.path.basename(picname)
+
     picpath, picname = os.path.abspath(picname), os.path.basename(picname)
+    picext = os.path.splitext(picname)
+    self.images += 1
+    if (picext[1] == '.jpg') :
+      picname = 'image'+str(self.images)+'.jpeg'
+    else:
+      picname = 'image'+str(self.images)+picext[1]
+
     shutil.copyfile(picpath, join(media_dir,picname))
     relationshiplist = self.relationships
 
