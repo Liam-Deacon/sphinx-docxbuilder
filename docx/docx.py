@@ -594,6 +594,8 @@ class DocxComposer:
     self.abstractNums = []
     self.numids = []
 
+    self.images = 0
+
     if stylefile == None :
       self.template_dir = None
     else :
