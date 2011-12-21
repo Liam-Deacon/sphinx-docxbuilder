@@ -56,26 +56,26 @@ Requirements
 
 Features
 ==========
-Currently works followings:
+Currently it works followings:
 
 * Headings
 * Bullet List
 * Enumerated Lists
 * Definition Lists
 * Field Lists (simple text only)
-* Literal Blocks (no colors)
+* Literal Blocks
+* High Lighing in Literal Blocks
 * Line Blocks
 * Block Quotes
 * Option Lists (simple text only)
 * Simple table and csv table
 * Images
 * Admonitions
-* High Lighing in Literal Blocks
 * Basic Inline Markups 
 
 Known issue
 ============
-Many sphinx syntax and directives aren't test yet.
+Many sphinx syntaxes and directives aren't tested yet.
 
 
 Quick Start

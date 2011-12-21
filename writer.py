@@ -133,6 +133,10 @@ class DocxWriter(writers.Writer):
         self.category = self.builder.config['docx_category']
         self.descriptions = self.builder.config['docx_descriptions']
         self.keywords = self.builder.config['docx_keywords']
+        try:
+          self.coverpage = self.builder.config['docx_coverpage']
+        except:
+          self.coverpage = True
 
         stylefile = self.builder.config['docx_style']
         if stylefile :
@@ -141,6 +145,8 @@ class DocxWriter(writers.Writer):
             self.docx.new_document('style.docx')
 
     def save(self, filename):
+        self.docx.set_coverpage(self.coverpage)
+
         self.docx.set_props(title=self.title,
                 subject=self.subject,
                 creator=self.creator,

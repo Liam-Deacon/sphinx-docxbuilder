@@ -11,4 +11,5 @@ def setup(app):
     app.add_config_value('docx_category', 'sphinx document', 'env')
     app.add_config_value('docx_descriptions', 'This document generaged by sphix-docxbuilder', 'env')
     app.add_config_value('docx_keywords', ['python', 'Office Open XML', 'Word'] , 'env')
+    app.add_config_value('docx_coverpage', True, 'env')
 

@@ -324,7 +324,6 @@ class DocxDocument:
     
   def get_coverpage(self):
     coverInfo=get_attribute(self.docbody, 'w:sdt/w:sdtPr/w:docPartObj/w:docPartGallery', 'w:val')
-    print "Cover:",coverInfo
     if coverInfo == "Cover Pages":
       self.coverpage=get_elements(self.docbody,'w:sdt')[0]
     else:
@@ -595,6 +594,7 @@ class DocxComposer:
     self.numids = []
 
     self.images = 0
+    self.nocoverpage = False
 
     if stylefile == None :
       self.template_dir = None
@@ -633,6 +633,9 @@ class DocxComposer:
     self.numbering = make_element_tree(['w:numbering'])
 
     return
+
+  def set_coverpage(self,flag=True):
+    self.nocoverpage = not flag
 
   def get_numbering_ids(self):
     '''
@@ -704,7 +707,9 @@ class DocxComposer:
       self.numbering.append(x)
 
     coverpage = self.styleDocx.get_coverpage()
-    if coverpage is not None :
+
+    if not self.nocoverpage and coverpage is not None :
+      print "output Coverpage"
       self.docbody.insert(0,coverpage)
 
     self.docbody.append(self.paper_info)

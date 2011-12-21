@@ -293,6 +293,7 @@ docx_creator=u'%(author_str)s'
 #docx_category=''
 #docx_descriptions=''
 docx_keywords=['Sphinx']
+#docx_coverpage=False
 
 '''
 
