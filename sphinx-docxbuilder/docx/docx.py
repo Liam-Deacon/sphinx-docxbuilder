@@ -371,7 +371,7 @@ class DocxDocument:
         file_name = join(to_dir,fname)
         if not os.path.exists(os.path.dirname(file_name)) :
           os.makedirs(os.path.dirname(file_name)) 
-        f = open(file_name, 'w')
+        f = open(file_name, 'wb') #Because var xmlcontent type is bytes, so need to openfile with 'wb'
         f.write(xmlcontent)
         f.close()
     except:
